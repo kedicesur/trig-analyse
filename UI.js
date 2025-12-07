@@ -27,7 +27,7 @@ export class ComplexVisualizerUI {
     this.viewState = {
       centerX: 0,
       centerY: 0,
-      scale: 1.5,
+      scale: 4.0, // MODIFICATION 1: Changed from 1.5 to 4.0 for proper scaling
       isDragging: false,
       lastMouseX: 0,
       lastMouseY: 0
@@ -38,6 +38,11 @@ export class ComplexVisualizerUI {
     this.currentStep = 0;
     this.animationInterval = null;
     this.isAnimating = false;
+    
+    // Tooltip state
+    this.tooltip = null;
+    this.hoveredConvergent = null;
+    this.tooltipTimeout = null;
     
     // Initialize
     this.init();
@@ -53,6 +58,9 @@ export class ComplexVisualizerUI {
     
     // Set up canvas event listeners for panning
     this.setupCanvasEvents();
+    
+    // Create tooltip element
+    this.createTooltip();
     
     // Initial resize and draw
     this.resizeCanvas();
@@ -71,20 +79,23 @@ export class ComplexVisualizerUI {
     });
     
     this.canvasContainer.addEventListener('mousemove', (e) => {
-      if (!this.viewState.isDragging) return;
-      
-      const deltaX = e.clientX - this.viewState.lastMouseX;
-      const deltaY = e.clientY - this.viewState.lastMouseY;
-      
-      // Convert pixel movement to complex plane movement
-      const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / 10);
-      this.viewState.centerX += deltaX / scaleFactor;
-      this.viewState.centerY -= deltaY / scaleFactor;
-      
-      this.viewState.lastMouseX = e.clientX;
-      this.viewState.lastMouseY = e.clientY;
-      
-      this.drawScene();
+      if (!this.viewState.isDragging) {
+        // MODIFICATION 3: Handle mouseover for tooltips
+        this.handleMouseMove(e);
+      } else {
+        const deltaX = e.clientX - this.viewState.lastMouseX;
+        const deltaY = e.clientY - this.viewState.lastMouseY;
+        
+        // Convert pixel movement to complex plane movement
+        const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / 10);
+        this.viewState.centerX += deltaX / scaleFactor;
+        this.viewState.centerY -= deltaY / scaleFactor;
+        
+        this.viewState.lastMouseX = e.clientX;
+        this.viewState.lastMouseY = e.clientY;
+        
+        this.drawScene();
+      }
     });
     
     this.canvasContainer.addEventListener('mouseup', () => {
@@ -95,7 +106,169 @@ export class ComplexVisualizerUI {
     this.canvasContainer.addEventListener('mouseleave', () => {
       this.viewState.isDragging = false;
       this.canvasContainer.style.cursor = 'move';
+      // Hide tooltip when mouse leaves canvas
+      this.hideTooltip();
     });
+    
+    // MODIFICATION 2: Add mouse wheel zoom
+    this.canvasContainer.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      
+      // Get mouse position relative to canvas
+      const rect = this.complexCanvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      
+      // Get complex coordinates at mouse position before zoom
+      const complexBeforeZoom = this.mapFromCanvas(mouseX, mouseY);
+      
+      // Determine zoom factor based on wheel direction
+      const zoomFactor = 1.2;
+      if (e.deltaY < 0) {
+        // Zoom in
+        this.viewState.scale *= zoomFactor;
+      } else {
+        // Zoom out
+        this.viewState.scale /= zoomFactor;
+        if (this.viewState.scale < 0.1) this.viewState.scale = 0.1;
+      }
+      
+      // Get complex coordinates at mouse position after zoom (with same center)
+      const complexAfterZoom = this.mapFromCanvas(mouseX, mouseY);
+      
+      // Adjust center to keep the point under the mouse stationary
+      this.viewState.centerX += (complexBeforeZoom.real - complexAfterZoom.real);
+      this.viewState.centerY += (complexBeforeZoom.imag - complexAfterZoom.imag);
+      
+      this.drawScene();
+    });
+  }
+  
+  // MODIFICATION 3: Create tooltip element
+  createTooltip() {
+    this.tooltip = document.createElement('div');
+    this.tooltip.id = 'convergentTooltip';
+    this.tooltip.style.position = 'absolute';
+    this.tooltip.style.display = 'none';
+    this.tooltip.style.background = 'rgba(255, 255, 255, 0.95)';
+    this.tooltip.style.border = '1px solid #3498db';
+    this.tooltip.style.borderRadius = '4px';
+    this.tooltip.style.padding = '8px 12px';
+    this.tooltip.style.fontFamily = 'monospace';
+    this.tooltip.style.fontSize = '12px';
+    this.tooltip.style.color = '#2c3e50';
+    this.tooltip.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+    this.tooltip.style.pointerEvents = 'none';
+    this.tooltip.style.zIndex = '1000';
+    this.tooltip.style.maxWidth = '300px';
+    this.tooltip.style.wordBreak = 'break-all';
+    
+    this.canvasContainer.appendChild(this.tooltip);
+  }
+  
+  // MODIFICATION 3: Handle mouse movement for tooltips
+  handleMouseMove(e) {
+    const rect = this.complexCanvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Check if mouse is near any convergent point
+    this.hoveredConvergent = null;
+    const hoverRadius = 15; // pixels
+    
+    if (this.currentConvergents.length > 0) {
+      const stepsToCheck = this.isAnimating ? 
+        Math.min(this.currentStep + 1, this.currentConvergents.length) : 
+        this.currentConvergents.length;
+      
+      for (let i = 0; i < stepsToCheck; i++) {
+        const convergent = this.currentConvergents[i];
+        const point = this.mapToCanvas(convergent.re, convergent.im);
+        
+        const distance = Math.sqrt(
+          Math.pow(mouseX - point.x, 2) + 
+          Math.pow(mouseY - point.y, 2)
+        );
+        
+        if (distance < hoverRadius) {
+          this.hoveredConvergent = {
+            index: i,
+            convergent: convergent,
+            canvasX: point.x,
+            canvasY: point.y
+          };
+          break;
+        }
+      }
+    }
+    
+    // Show or hide tooltip based on hover state
+    if (this.hoveredConvergent) {
+      this.showTooltip(e.clientX, e.clientY);
+    } else {
+      this.hideTooltip();
+    }
+  }
+  
+  // MODIFICATION 3: Show tooltip
+  showTooltip(x, y) {
+    if (!this.hoveredConvergent) return;
+    
+    const conv = this.hoveredConvergent.convergent;
+    const index = this.hoveredConvergent.index;
+    
+    this.tooltip.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 4px;">Convergent C${index + 1}</div>
+      <div>${conv.toString(10)}</div>
+      <div style="margin-top: 4px; font-size: 11px; color: #7f8c8d;">
+        Magnitude: ${conv.magnitude().toFixed(10)}
+      </div>
+    `;
+    
+    // Position tooltip (avoid going off screen)
+    const tooltipWidth = this.tooltip.offsetWidth;
+    const tooltipHeight = this.tooltip.offsetHeight;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    let posX = x + 15;
+    let posY = y - 15;
+    
+    // Adjust if tooltip would go off the right edge
+    if (posX + tooltipWidth > windowWidth - 20) {
+      posX = x - tooltipWidth - 15;
+    }
+    
+    // Adjust if tooltip would go off the bottom edge
+    if (posY + tooltipHeight > windowHeight - 20) {
+      posY = windowHeight - tooltipHeight - 20;
+    }
+    
+    // Adjust if tooltip would go off the top edge
+    if (posY < 20) {
+      posY = 20;
+    }
+    
+    this.tooltip.style.left = `${posX}px`;
+    this.tooltip.style.top = `${posY}px`;
+    this.tooltip.style.display = 'block';
+    
+    // Clear any existing timeout
+    if (this.tooltipTimeout) {
+      clearTimeout(this.tooltipTimeout);
+    }
+  }
+  
+  // MODIFICATION 3: Hide tooltip
+  hideTooltip() {
+    if (this.tooltipTimeout) {
+      clearTimeout(this.tooltipTimeout);
+    }
+    
+    this.tooltipTimeout = setTimeout(() => {
+      this.tooltip.style.display = 'none';
+      this.hoveredConvergent = null;
+    }, 100);
   }
   
   resizeCanvas() {
@@ -283,28 +456,13 @@ export class ComplexVisualizerUI {
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
       
-      // Draw convergent label
+      // Draw convergent label (just the number, not the value - MODIFICATION 3)
       this.ctx.fillStyle = '#2c3e50';
       this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Arial' : '10px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.fillText(`C${i + 1}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
       
-      // For the final convergent, also show the value with full precision
-      if (i === this.currentConvergents.length - 1) {
-        this.ctx.fillStyle = '#7f8c8d';
-        this.ctx.font = '10px Arial';
-        
-        // Use toString method for consistent formatting
-        const label = convergent.toString(10);
-        // Truncate if too long (for display purposes)
-        const displayLabel = label.length > 40 ? label.substring(0, 37) + '...' : label;
-        
-        this.ctx.fillText(
-          displayLabel, 
-          point.x, 
-          point.y + 40
-        );
-      }
+      // MODIFICATION 3: Removed the complex value display from the graph
     }
     
     // Update display info
@@ -435,10 +593,21 @@ export class ComplexVisualizerUI {
   }
   
   resetView() {
+    // MODIFICATION 1: Reset view with proper scaling
+    // Unit circle diameter should be 8 grids wide
+    // The shortest dimension should show 10 grids
+    
+    // With scale = 4.0:
+    // - Grid step = 1.0 / scale = 0.25
+    // - Unit circle diameter (2 units) = 2 / 0.25 = 8 grid steps ✓
+    // - Shortest dimension: canvas dimension / (scale * minDimension/10) = visible units
+    // For a 500px canvas min dimension: 500 / (4.0 * 500/10) = 500 / 200 = 2.5 units
+    // 2.5 units / 0.25 grid step = 10 grid steps ✓
+    
     this.viewState = {
       centerX: 0,
       centerY: 0,
-      scale: 1.5,
+      scale: 4.0, // MODIFICATION 1: Set to 4.0 for proper grid scaling
       isDragging: false,
       lastMouseX: 0,
       lastMouseY: 0
@@ -450,6 +619,7 @@ export class ComplexVisualizerUI {
   _toRational(x) {
     // Handle special cases
     if (!isFinite(x)) return { n: NaN, d: NaN };
+    if (x === 0) return { n: 0, d: 1 };
     
     let m = Math.floor(x);
     let x_ = 1 / (x - m);

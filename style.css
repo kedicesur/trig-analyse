@@ -258,6 +258,42 @@ canvas {
     font-weight: bold;
 }
 
+/* Add to existing style.css */
+
+.convergent-tooltip {
+    position: absolute;
+    display: none;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #3498db;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #2c3e50;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+    z-index: 1000;
+    max-width: 300px;
+    word-break: break-all;
+}
+
+.convergent-tooltip h4 {
+    margin: 0 0 4px 0;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.convergent-tooltip .value {
+    margin: 0;
+    font-size: 11px;
+}
+
+.convergent-tooltip .magnitude {
+    margin: 4px 0 0 0;
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
 footer {
     text-align: center;
     margin-top: 30px;
