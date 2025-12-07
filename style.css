@@ -75,6 +75,88 @@ h2 {
     margin-bottom: 20px;
 }
 
+/* Add to existing style.css */
+
+.rational-input-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.pi-divider {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    margin: 2px 0;
+}
+
+.pi-line {
+    border-top: 1px solid #ccc;
+    margin: 5px 0;
+}
+
+.pi-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #f8f9fa;
+    padding: 0 10px;
+    color: #7f8c8d;
+    font-weight: bold;
+}
+
+#numeratorInput, #denominatorInput {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    background-color: #f9f9f9;
+    transition: border-color 0.3s;
+    text-align: center;
+}
+
+#numeratorInput:focus, #denominatorInput:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    background-color: #f9f9f9;
+    transition: border-color 0.3s;
+}
+
+select:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.conversion-info {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f0f8ff;
+    border-radius: 5px;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.conversion-info h4 {
+    margin-bottom: 5px;
+    color: #3498db;
+}
+
+#conversionText {
+    font-family: monospace;
+    word-break: break-all;
+}
+
 label {
     display: block;
     margin-bottom: 8px;

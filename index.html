@@ -16,11 +16,43 @@
         <div class="content">
             <div class="input-section">
                 <h2>Generate Coefficients</h2>
-                <p>Enter an angle (in radians) and coefficient count to generate coefficients for e^(i/denominator)</p>
+                <p>Enter an angle and coefficient count to generate coefficients for e^(iθ)</p>
                 
                 <div class="input-group">
-                    <label for="angleInput">Angle (radians):</label>
-                    <input type="number" id="angleInput" value="1.0" step="0.1" min="0.1" max="10">
+                    <label for="angleInput">Angle (decimal radians):</label>
+                    <input type="number" id="angleInput" value="1.0" step="0.1" min="-10" max="10">
+                </div>
+                
+                <div class="input-group">
+                    <label>Angle (rational × π):</label>
+                    <div class="rational-input-container">
+                        <input type="number" id="numeratorInput" placeholder="Numerator" value="1">
+                        <div class="pi-divider">
+                            <div class="pi-line"></div>
+                            <div class="pi-label">π</div>
+                        </div>
+                        <input type="number" id="denominatorInput" placeholder="Denominator" value="1">
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="piDropdown">π Approximation:</label>
+                    <select id="piDropdown">
+                        <option value="1">1 (exact)</option>
+                        <option value="22/7">22/7</option>
+                        <option value="333/106">333/106</option>
+                        <option value="355/113">355/113</option>
+                        <option value="103993/33102">103993/33102</option>
+                        <option value="104348/33215">104348/33215</option>
+                        <option value="208341/66317">208341/66317</option>
+                        <option value="312689/99532">312689/99532</option>
+                        <option value="833719/265381">833719/265381</option>
+                        <option value="1146408/364913">1146408/364913</option>
+                        <option value="4272943/1360120">4272943/1360120</option>
+                        <option value="5419351/1725033">5419351/1725033</option>
+                        <option value="80143857/25510582">80143857/25510582</option>
+                        <option value="245850922/78256779" selected>245850922/78256779</option>
+                    </select>
                 </div>
                 
                 <div class="input-group">
@@ -78,7 +110,8 @@
                 <div class="info-panel">
                     <h3>Visualization Info</h3>
                     <p>The unit circle is drawn in red. Convergents approach e^(iθ) as more coefficients are used.</p>
-                    <p>Drag the canvas to pan, use +/- buttons to zoom.</p>
+                    <p>Drag the canvas to pan, use mouse wheel or +/- buttons to zoom.</p>
+                    <p>Hover over convergents to see their exact values.</p>
                 </div>
             </div>
         </div>
@@ -86,7 +119,8 @@
         <div class="instructions">
             <h2>How It Works</h2>
             <ul>
-                <li>Enter an angle in radians and the number of coefficients to generate</li>
+                <li>Enter an angle in decimal radians or as a rational multiple of π</li>
+                <li>Select a π approximation from the dropdown (1 gives exact radians)</li>
                 <li>The system generates coefficients for a complex simple continued fraction</li>
                 <li>Each convergent (approximation) is calculated step by step and plotted</li>
                 <li>The red circle is the unit circle - convergents should approach it</li>

@@ -6,6 +6,9 @@ export class ComplexVisualizerUI {
   constructor() {
     // DOM elements
     this.angleInput = document.getElementById('angleInput');
+    this.numeratorInput = document.getElementById('numeratorInput');
+    this.denominatorInput = document.getElementById('denominatorInput');
+    this.piDropdown = document.getElementById('piDropdown');
     this.coefficientCountInput = document.getElementById('coefficientCount');
     this.plotButton = document.getElementById('plotButton');
     this.generateRandomButton = document.getElementById('generateCoefficients');
@@ -27,7 +30,7 @@ export class ComplexVisualizerUI {
     this.viewState = {
       centerX: 0,
       centerY: 0,
-      scale: 4.0, // MODIFICATION 1: Changed from 1.5 to 4.0 for proper scaling
+      scale: 4.0,
       isDragging: false,
       lastMouseX: 0,
       lastMouseY: 0
@@ -44,6 +47,10 @@ export class ComplexVisualizerUI {
     this.hoveredConvergent = null;
     this.tooltipTimeout = null;
     
+    // Input synchronization flags
+    this.isUpdatingFromDecimal = false;
+    this.isUpdatingFromRational = false;
+    
     // Initialize
     this.init();
   }
@@ -56,7 +63,10 @@ export class ComplexVisualizerUI {
     this.zoomOutButton.addEventListener('click', () => this.zoomOut());
     this.resetViewButton.addEventListener('click', () => this.resetView());
     
-    // Set up canvas event listeners for panning
+    // Set up input synchronization event listeners
+    this.setupInputEvents();
+    
+    // Set up canvas event listeners for panning and zooming
     this.setupCanvasEvents();
     
     // Create tooltip element
@@ -67,7 +77,49 @@ export class ComplexVisualizerUI {
     window.addEventListener('resize', () => this.resizeCanvas());
     
     // Initial plot
-    setTimeout(() => this.generateAndPlot(), 100);
+    setTimeout(() => {
+      // Update rational input from initial decimal value
+      this.updateRationalFromDecimal();
+      this.generateAndPlot();
+    }, 100);
+  }
+  
+  setupInputEvents() {
+    // Decimal input -> update rational
+    this.angleInput.addEventListener('input', () => {
+      if (!this.isUpdatingFromRational) {
+        this.isUpdatingFromDecimal = true;
+        this.updateRationalFromDecimal();
+        this.isUpdatingFromDecimal = false;
+      }
+    });
+    
+    // Rational inputs -> update decimal
+    this.numeratorInput.addEventListener('input', () => {
+      if (!this.isUpdatingFromDecimal) {
+        this.isUpdatingFromRational = true;
+        this.updateDecimalFromRational();
+        this.isUpdatingFromRational = false;
+      }
+    });
+    
+    this.denominatorInput.addEventListener('input', () => {
+      if (!this.isUpdatingFromDecimal) {
+        this.isUpdatingFromRational = true;
+        this.updateDecimalFromRational();
+        this.isUpdatingFromRational = false;
+      }
+    });
+    
+    // Pi dropdown changes -> update both
+    this.piDropdown.addEventListener('change', () => {
+      // When π changes, we need to update rational from decimal
+      if (!this.isUpdatingFromDecimal) {
+        this.isUpdatingFromRational = true;
+        this.updateRationalFromDecimal();
+        this.isUpdatingFromRational = false;
+      }
+    });
   }
   
   setupCanvasEvents() {
@@ -80,7 +132,7 @@ export class ComplexVisualizerUI {
     
     this.canvasContainer.addEventListener('mousemove', (e) => {
       if (!this.viewState.isDragging) {
-        // MODIFICATION 3: Handle mouseover for tooltips
+        // Handle mouseover for tooltips
         this.handleMouseMove(e);
       } else {
         const deltaX = e.clientX - this.viewState.lastMouseX;
@@ -110,7 +162,7 @@ export class ComplexVisualizerUI {
       this.hideTooltip();
     });
     
-    // MODIFICATION 2: Add mouse wheel zoom
+    // Mouse wheel zoom
     this.canvasContainer.addEventListener('wheel', (e) => {
       e.preventDefault();
       
@@ -144,7 +196,55 @@ export class ComplexVisualizerUI {
     });
   }
   
-  // MODIFICATION 3: Create tooltip element
+  // Convert π string to numeric value
+  parsePiValue(piStr) {
+    if (piStr === '1') return 1;
+    if (piStr.includes('/')) {
+      const [num, den] = piStr.split('/').map(Number);
+      return num / den;
+    }
+    return parseFloat(piStr);
+  }
+  
+  // Update rational input from decimal
+  updateRationalFromDecimal() {
+    const decimal = parseFloat(this.angleInput.value);
+    if (isNaN(decimal)) return;
+    
+    const piStr = this.piDropdown.value;
+    const piValue = this.parsePiValue(piStr);
+    
+    // If π = 1, angleWithoutPi = decimal
+    // Otherwise, angleWithoutPi = decimal / π
+    const angleWithoutPi = decimal / piValue;
+    
+    // Convert to rational
+    const rational = this._toRational(angleWithoutPi);
+    
+    // Update rational inputs
+    this.numeratorInput.value = rational.n;
+    this.denominatorInput.value = rational.d;
+  }
+  
+  // Update decimal input from rational
+  updateDecimalFromRational() {
+    const numerator = parseFloat(this.numeratorInput.value);
+    const denominator = parseFloat(this.denominatorInput.value);
+    
+    if (isNaN(numerator) || isNaN(denominator) || denominator === 0) {
+      return;
+    }
+    
+    const piStr = this.piDropdown.value;
+    const piValue = this.parsePiValue(piStr);
+    
+    // Calculate decimal: (numerator/denominator) * π
+    const decimal = (numerator / denominator) * piValue;
+    
+    // Update decimal input
+    this.angleInput.value = decimal;
+  }
+  
   createTooltip() {
     this.tooltip = document.createElement('div');
     this.tooltip.id = 'convergentTooltip';
@@ -166,7 +266,6 @@ export class ComplexVisualizerUI {
     this.canvasContainer.appendChild(this.tooltip);
   }
   
-  // MODIFICATION 3: Handle mouse movement for tooltips
   handleMouseMove(e) {
     const rect = this.complexCanvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -210,7 +309,6 @@ export class ComplexVisualizerUI {
     }
   }
   
-  // MODIFICATION 3: Show tooltip
   showTooltip(x, y) {
     if (!this.hoveredConvergent) return;
     
@@ -259,7 +357,6 @@ export class ComplexVisualizerUI {
     }
   }
   
-  // MODIFICATION 3: Hide tooltip
   hideTooltip() {
     if (this.tooltipTimeout) {
       clearTimeout(this.tooltipTimeout);
@@ -456,13 +553,11 @@ export class ComplexVisualizerUI {
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
       
-      // Draw convergent label (just the number, not the value - MODIFICATION 3)
+      // Draw convergent label (just the number)
       this.ctx.fillStyle = '#2c3e50';
       this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Arial' : '10px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.fillText(`C${i + 1}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
-      
-      // MODIFICATION 3: Removed the complex value display from the graph
     }
     
     // Update display info
@@ -577,6 +672,11 @@ export class ComplexVisualizerUI {
     const randomAngle = (Math.random() * 2.9 + 0.1).toFixed(2);
     this.angleInput.value = randomAngle;
     
+    // Update rational input from decimal
+    this.isUpdatingFromRational = true;
+    this.updateRationalFromDecimal();
+    this.isUpdatingFromRational = false;
+    
     // Generate and plot
     this.generateAndPlot();
   }
@@ -593,21 +693,10 @@ export class ComplexVisualizerUI {
   }
   
   resetView() {
-    // MODIFICATION 1: Reset view with proper scaling
-    // Unit circle diameter should be 8 grids wide
-    // The shortest dimension should show 10 grids
-    
-    // With scale = 4.0:
-    // - Grid step = 1.0 / scale = 0.25
-    // - Unit circle diameter (2 units) = 2 / 0.25 = 8 grid steps ✓
-    // - Shortest dimension: canvas dimension / (scale * minDimension/10) = visible units
-    // For a 500px canvas min dimension: 500 / (4.0 * 500/10) = 500 / 200 = 2.5 units
-    // 2.5 units / 0.25 grid step = 10 grid steps ✓
-    
     this.viewState = {
       centerX: 0,
       centerY: 0,
-      scale: 4.0, // MODIFICATION 1: Set to 4.0 for proper grid scaling
+      scale: 4.0,
       isDragging: false,
       lastMouseX: 0,
       lastMouseY: 0
@@ -621,11 +710,14 @@ export class ComplexVisualizerUI {
     if (!isFinite(x)) return { n: NaN, d: NaN };
     if (x === 0) return { n: 0, d: 1 };
     
+    const sign = Math.sign(x);
+    x = Math.abs(x);
+    
     let m = Math.floor(x);
+    if (x === m) return { n: sign * m, d: 1 };
+    
     let x_ = 1 / (x - m);
     let p_ = 1, q_ = 0, p = m, q = 1;
-    
-    if (x === m) return { n: p, d: q };
     
     while (Math.abs(x - p / q) > Number.EPSILON) {
       m = Math.floor(x_);
@@ -633,6 +725,6 @@ export class ComplexVisualizerUI {
       [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
     }
     
-    return { n: p, d: q };
+    return { n: sign * p, d: q };
   }
 }
