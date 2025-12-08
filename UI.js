@@ -16,9 +16,8 @@ export class ComplexVisualizerUI {
     this.canvasContainer = document.getElementById('canvasContainer');
     this.coefficientsList = document.getElementById('coefficientsList');
     this.convergentsList = document.getElementById('convergentsList');
-    this.zoomInButton = document.getElementById('zoomIn');
-    this.zoomOutButton = document.getElementById('zoomOut');
     this.resetViewButton = document.getElementById('resetView');
+    this.zoomToLastButton = document.getElementById('zoomToLast');
     this.currentConvergentElement = document.getElementById('currentConvergent');
     this.totalConvergentsElement = document.getElementById('totalConvergents');
     this.distanceToUnitCircleElement = document.getElementById('distanceToUnitCircle');
@@ -59,9 +58,8 @@ export class ComplexVisualizerUI {
     // Set up event listeners
     this.plotButton.addEventListener('click', () => this.generateAndPlot());
     this.generateRandomButton.addEventListener('click', () => this.generateRandomAngle());
-    this.zoomInButton.addEventListener('click', () => this.zoomIn());
-    this.zoomOutButton.addEventListener('click', () => this.zoomOut());
     this.resetViewButton.addEventListener('click', () => this.resetView());
+    this.zoomToLastButton.addEventListener('click', () => this.zoomToLastConvergent());
     
     // Set up input synchronization event listeners
     this.setupInputEvents();
@@ -248,20 +246,8 @@ export class ComplexVisualizerUI {
   createTooltip() {
     this.tooltip = document.createElement('div');
     this.tooltip.id = 'convergentTooltip';
-    this.tooltip.style.position = 'absolute';
+    this.tooltip.className = 'convergent-tooltip';
     this.tooltip.style.display = 'none';
-    this.tooltip.style.background = 'rgba(255, 255, 255, 0.95)';
-    this.tooltip.style.border = '1px solid #3498db';
-    this.tooltip.style.borderRadius = '4px';
-    this.tooltip.style.padding = '8px 12px';
-    this.tooltip.style.fontFamily = 'monospace';
-    this.tooltip.style.fontSize = '12px';
-    this.tooltip.style.color = '#2c3e50';
-    this.tooltip.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
-    this.tooltip.style.pointerEvents = 'none';
-    this.tooltip.style.zIndex = '1000';
-    this.tooltip.style.maxWidth = '300px';
-    this.tooltip.style.wordBreak = 'break-all';
     
     this.canvasContainer.appendChild(this.tooltip);
   }
@@ -315,12 +301,17 @@ export class ComplexVisualizerUI {
     const conv = this.hoveredConvergent.convergent;
     const index = this.hoveredConvergent.index;
     
+    // FIX 2: Show full precision values
+    // Use maximum precision available (15 digits after decimal)
+    const realStr = conv.re.toString();
+    const imagStr = Math.abs(conv.im).toString();
+    const sign = conv.im >= 0 ? '+' : '-';
+    const magnitudeStr = conv.magnitude().toString();
+    
     this.tooltip.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 4px;">Convergent C${index + 1}</div>
-      <div>${conv.toString(10)}</div>
-      <div style="margin-top: 4px; font-size: 11px; color: #7f8c8d;">
-        Magnitude: ${conv.magnitude().toFixed(10)}
-      </div>
+      <h4>Convergent C${index + 1}</h4>
+      <div class="value">${realStr} ${sign} ${imagStr}i</div>
+      <div class="magnitude">Magnitude: ${magnitudeStr}</div>
     `;
     
     // Position tooltip (avoid going off screen)
@@ -431,7 +422,7 @@ export class ComplexVisualizerUI {
       // Draw label
       if (Math.abs(real) > 0.01) {
         this.ctx.fillStyle = '#7f8c8d';
-        this.ctx.font = '12px Arial';
+        this.ctx.font = '12px Roboto';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(real.toFixed(4), pos.x, this.complexCanvas.height - 10);
       }
@@ -449,7 +440,7 @@ export class ComplexVisualizerUI {
       // Draw label
       if (Math.abs(imag) > 0.001) {
         this.ctx.fillStyle = '#7f8c8d';
-        this.ctx.font = '12px Arial';
+        this.ctx.font = '12px Roboto';
         this.ctx.textAlign = 'right';
         this.ctx.fillText(imag.toFixed(4) + 'i', 40, pos.y + 4);
       }
@@ -475,7 +466,7 @@ export class ComplexVisualizerUI {
     
     // Draw axis labels
     this.ctx.fillStyle = '#2c3e50';
-    this.ctx.font = 'bold 14px Arial';
+    this.ctx.font = 'bold 14px Open Sans';
     this.ctx.textAlign = 'right';
     this.ctx.fillText('Imaginary (i)', 50, 20);
     
@@ -497,7 +488,7 @@ export class ComplexVisualizerUI {
     
     // Draw unit circle label
     this.ctx.fillStyle = '#e74c3c';
-    this.ctx.font = 'bold 14px Arial';
+    this.ctx.font = 'bold 14px Open Sans';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Unit Circle', center.x + radius + 40, center.y);
   }
@@ -555,7 +546,7 @@ export class ComplexVisualizerUI {
       
       // Draw convergent label (just the number)
       this.ctx.fillStyle = '#2c3e50';
-      this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Arial' : '10px Arial';
+      this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Open Sans' : '10px Open Sans';
       this.ctx.textAlign = 'center';
       this.ctx.fillText(`C${i + 1}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
     }
@@ -681,17 +672,6 @@ export class ComplexVisualizerUI {
     this.generateAndPlot();
   }
   
-  zoomIn() {
-    this.viewState.scale *= 1.2;
-    this.drawScene();
-  }
-  
-  zoomOut() {
-    this.viewState.scale /= 1.2;
-    if (this.viewState.scale < 0.1) this.viewState.scale = 0.1;
-    this.drawScene();
-  }
-  
   resetView() {
     this.viewState = {
       centerX: 0,
@@ -701,6 +681,92 @@ export class ComplexVisualizerUI {
       lastMouseX: 0,
       lastMouseY: 0
     };
+    this.drawScene();
+  }
+  
+  // FIX 1: Corrected zoom to last convergent functionality
+  zoomToLastConvergent() {
+    if (this.currentConvergents.length < 2) {
+      alert('Need at least 2 convergents to zoom.');
+      return;
+    }
+    
+    const lastIndex = this.currentConvergents.length - 1;
+    const lastConv = this.currentConvergents[lastIndex];
+    
+    // Find the previous convergent with a different value (with full precision comparison)
+    // We'll use a small epsilon for floating point comparison
+    const epsilon = 1e-15;
+    let prevIndex = lastIndex - 1;
+    let foundDifferent = false;
+    
+    while (prevIndex >= 0) {
+      const prevConv = this.currentConvergents[prevIndex];
+      
+      // Compare real and imaginary parts with high precision
+      const reDiff = Math.abs(prevConv.re - lastConv.re);
+      const imDiff = Math.abs(prevConv.im - lastConv.im);
+      
+      if (reDiff > epsilon || imDiff > epsilon) {
+        foundDifferent = true;
+        break;
+      }
+      prevIndex--;
+    }
+    
+    if (!foundDifferent) {
+      alert('All convergents have the same value (within floating point precision).');
+      return;
+    }
+    
+    const prevConv = this.currentConvergents[prevIndex];
+    
+    // Calculate the bounding box that contains both convergents
+    const minReal = Math.min(lastConv.re, prevConv.re);
+    const maxReal = Math.max(lastConv.re, prevConv.re);
+    const minImag = Math.min(lastConv.im, prevConv.im);
+    const maxImag = Math.max(lastConv.im, prevConv.im);
+    
+    // Calculate the center of the bounding box
+    const centerReal = (minReal + maxReal) / 2;
+    const centerImag = (minImag + maxImag) / 2;
+    
+    // Calculate the dimensions of the bounding box
+    const width = maxReal - minReal;
+    const height = maxImag - minImag;
+    
+    // Add padding around the points (10% of the dimensions)
+    const padding = 0.1;
+    const paddedWidth = width * (1 + 2 * padding);
+    const paddedHeight = height * (1 + 2 * padding);
+    
+    // Get canvas dimensions
+    const canvasWidth = this.complexCanvas.width;
+    const canvasHeight = this.complexCanvas.height;
+    
+    // We need to fit the padded bounding box into the canvas
+    // Calculate the required scale factor for both dimensions
+    const scaleFactorX = canvasWidth / paddedWidth;
+    const scaleFactorY = canvasHeight / paddedHeight;
+    
+    // Use the smaller scale factor to ensure everything fits
+    const scaleFactor = Math.min(scaleFactorX, scaleFactorY);
+    
+    // Now we need to convert this scale factor to our viewState.scale
+    // The relationship is: scaleFactor = viewState.scale * (minDim / 10)
+    // where minDim = min(canvasWidth, canvasHeight)
+    const minDim = Math.min(canvasWidth, canvasHeight);
+    
+    // Calculate the new scale for the view
+    // If scaleFactor is larger, we need to zoom in more
+    const newScale = (scaleFactor * 10) / minDim;
+    
+    // Update the view state
+    this.viewState.centerX = -centerReal;
+    this.viewState.centerY = -centerImag;
+    this.viewState.scale = newScale;
+    
+    // Redraw the scene
     this.drawScene();
   }
   
