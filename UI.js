@@ -528,8 +528,8 @@ resizeCanvas() {
     // Draw axis labels
     this.ctx.fillStyle = '#2c3e50';
     this.ctx.font = 'bold 14px Open Sans';
-    this.ctx.textAlign = 'right';
-    this.ctx.fillText('Imaginary (i)', 50, 20);
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('Imaginary (i)', zeroX + 10, 30 );
 
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Real', this.complexCanvas.width - 30, zeroY - 10);
