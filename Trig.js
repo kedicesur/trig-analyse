@@ -33,6 +33,23 @@ function _toRational(x) {
  * @returns {Complex[]} Array of coefficients
  */
 export function generateCoefficients(n, k) {
+  if (n === 1) return [ new Complex(1, 1)
+                      , new Complex(-2, 1)
+                      , new Complex(1, 3)
+                      , new Complex(-2, 0)
+                      , new Complex(0, -5)
+                      , new Complex(2, 0)
+                      , new Complex(0, 7)
+                      , new Complex(-2, 0)
+                      , new Complex(0, -9)
+                      , new Complex(2, 0)
+                      , new Complex(0, 11)
+                      , new Complex(-2, 0)
+                      , new Complex(0, -13)
+                      , new Complex(2, 0)
+                      , new Complex(0, 15)
+                      , new Complex(-2, 0)
+                      ];
   const coefficients = [];
   for (let c = 0; c < k; c++) {
     let re = 0, im = 0;

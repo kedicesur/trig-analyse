@@ -37,6 +37,9 @@ export class ComplexVisualizerUI {
       maxBound: 1.2
     };
 
+    // Number of coefficients/convergents to generate
+    this.COEFFICIENT_COUNT = 16;
+
     // Current convergents and animation state
     this.currentConvergents = [];
     this.currentStep = 0;
@@ -139,7 +142,7 @@ export class ComplexVisualizerUI {
         const deltaY = e.clientY - this.viewState.lastMouseY;
 
         // Convert pixel movement to complex plane movement
-        const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / (2.4)); // 2.4 = maxBound - minBound
+        const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / 2.4); // 2.4 = maxBound - minBound
 
         // Update center with bounds checking
         const newCenterX = this.viewState.centerX + deltaX / scaleFactor;
@@ -205,6 +208,30 @@ export class ComplexVisualizerUI {
       this.drawScene();
     });
   }
+
+ /**
+ * Find the index where convergents stop changing (within Number.EPSILON)
+ * @param {Complex[]} convergents - Array of convergents
+ * @returns {number} Index of first redundant convergent, or -1 if none
+ */
+findConvergenceIndex(convergents) {
+    if (convergents.length < 2) return -1;
+    
+    for (let i = 1; i < convergents.length - 1; i++) {
+        const current = convergents[i];
+        const next = convergents[i + 1];
+        
+        const reDiff = Math.abs(current.re - next.re);
+        const imDiff = Math.abs(current.im - next.im);
+        
+        // Check if any one of real or imaginary parts are within EPSILON
+        if (reDiff <= Number.EPSILON || imDiff <= Number.EPSILON) {
+            return i + 1; // Return index of the first redundant convergent
+        }
+    }
+    
+    return -1; // No redundant convergents found
+}
 
   // Convert π string to numeric value
   parsePiValue(piStr) {
@@ -315,62 +342,64 @@ export class ComplexVisualizerUI {
     const conv = this.hoveredConvergent.convergent;
     const index = this.hoveredConvergent.index;
 
-    // FIX 6: Use .toFixed(18) for full precision display
+    // Format content
     const realStr = conv.re.toFixed(18).replace(/\.?0+$/, '');
     const imagStr = Math.abs(conv.im).toFixed(18).replace(/\.?0+$/, '');
     const sign = conv.im >= 0 ? '+' : '-';
     const magnitudeStr = conv.magnitude().toFixed(18).replace(/\.?0+$/, '');
 
     this.tooltip.innerHTML = `
-      <h4>Convergent C${index + 1}</h4>
+      <h4>Convergent C${index}</h4>
       <div class="value">${realStr} ${sign} ${imagStr}i</div>
       <div class="magnitude">Magnitude: ${magnitudeStr}</div>
     `;
-    
-    // Get canvas container position relative to viewport
-    const containerRect = this.canvasContainer.getBoundingClientRect();
-    
-    // Convert window coordinates to container-relative coordinates
-    const containerX = x - containerRect.left;
-    const containerY = y - containerRect.top;
 
-    // Position tooltip near mouse pointer (right and slightly below)
-    const tooltipWidth = this.tooltip.offsetWidth;
-    const tooltipHeight = this.tooltip.offsetHeight;
-    
-    // Default position: to the right of the cursor
-    let posX = containerX + 10;
-    let posY = containerY + 10;
-    
-    // Container dimensions
+    const containerRect = this.canvasContainer.getBoundingClientRect();
     const containerWidth = containerRect.width;
     const containerHeight = containerRect.height;
 
-    // Adjust if tooltip would go off the right edge
-    if (posX + tooltipWidth > containerWidth - 10) {
-      posX = containerX - tooltipWidth - 10;
+    const convPoint = {
+      x: this.hoveredConvergent.canvasX,
+      y: this.hoveredConvergent.canvasY
+    };
+
+    this.tooltip.style.display = 'block';
+    const tooltipWidth = this.tooltip.offsetWidth;
+    const tooltipHeight = this.tooltip.offsetHeight;
+
+    // Simple rule: 
+    // - If convergent is on left half, show tooltip to the right
+    // - If convergent is on right half, show tooltip to the left
+    // - If convergent is on top half, show tooltip below
+    // - If convergent is on bottom half, show tooltip above
+
+    // Horizontal positioning
+    let posX;
+    if (convPoint.x < containerWidth / 2) {
+      // Convergent on left → tooltip on right
+      posX = convPoint.x + 15;
+    } else {
+      // Convergent on right → tooltip on left
+      posX = convPoint.x - tooltipWidth - 15;
     }
 
-    // Adjust if tooltip would go off the bottom edge
-    if (posY + tooltipHeight > containerHeight - 10) {
-      posY = containerY - tooltipHeight - 10;
-    }
-    
-    // Adjust if tooltip would go off the left edge of container
-    if (posX < 10) {
-        posX = 10;
+    // Vertical positioning
+    let posY;
+    if (convPoint.y < containerHeight / 2) {
+      // Convergent on top → tooltip below
+      posY = convPoint.y + 15;
+    } else {
+      // Convergent on bottom → tooltip above
+      posY = convPoint.y - tooltipHeight - 15;
     }
 
-    // Adjust if tooltip would go off the top edge
-    if (posY < 10) {
-      posY = 10;
-    }
+    // Clamp to container (prevents going outside)
+    posX = Math.max(10, Math.min(containerWidth - tooltipWidth - 10, posX));
+    posY = Math.max(10, Math.min(containerHeight - tooltipHeight - 10, posY));
 
     this.tooltip.style.left = `${posX}px`;
     this.tooltip.style.top = `${posY}px`;
-    this.tooltip.style.display = 'block';
 
-    // Clear any existing timeout
     if (this.tooltipTimeout) {
       clearTimeout(this.tooltipTimeout);
     }
@@ -435,6 +464,98 @@ resizeCanvas() {
     const imag = (centerY - y) / scaleFactor - this.viewState.centerY;
 
     return { real, imag };
+  }
+
+  drawVisibleUnitCircle() {
+    // Only draw unit circle if it intersects the current viewport
+    this.ctx.strokeStyle = '#e74c3c';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+
+    // Get viewport bounds
+    const topLeft = this.mapFromCanvas(0, 0);
+    const bottomRight = this.mapFromCanvas(this.complexCanvas.width, this.complexCanvas.height);
+
+    const viewport = {
+      minReal: Math.min(topLeft.real, bottomRight.real),
+      maxReal: Math.max(topLeft.real, bottomRight.real),
+      minImag: Math.min(topLeft.imag, bottomRight.imag),
+      maxImag: Math.max(topLeft.imag, bottomRight.imag)
+    };
+
+    // Quick check: Is the unit circle possibly visible?
+    const circleRadius = 1;
+    const circleVisible =
+      viewport.minReal <= circleRadius && viewport.maxReal >= -circleRadius &&
+      viewport.minImag <= circleRadius && viewport.maxImag >= -circleRadius;
+
+    if (!circleVisible) {
+      this.ctx.setLineDash([]);
+      return;
+    }
+
+    // Determine visible angle range
+    // If origin is in viewport, we might see the full circle
+    let startAngle = 0;
+    let endAngle = 2 * Math.PI;
+
+    const originInViewport =
+      viewport.minReal <= 0 && viewport.maxReal >= 0 &&
+      viewport.minImag <= 0 && viewport.maxImag >= 0;
+
+    if (!originInViewport) {
+      // Calculate angles from origin to viewport corners
+      const corners = [
+        { x: viewport.minReal, y: viewport.minImag },
+        { x: viewport.minReal, y: viewport.maxImag },
+        { x: viewport.maxReal, y: viewport.minImag },
+        { x: viewport.maxReal, y: viewport.maxImag }
+      ];
+
+      const angles = corners.map(corner => {
+        const angle = Math.atan2(corner.y, corner.x);
+        return angle < 0 ? angle + 2 * Math.PI : angle;
+      });
+
+      startAngle = Math.min(...angles);
+      endAngle = Math.max(...angles);
+
+      // If the angle range is very large, just draw full circle
+      if (endAngle - startAngle > Math.PI * 1.5) {
+        startAngle = 0;
+        endAngle = 2 * Math.PI;
+      }
+    }
+
+    // Draw the visible arc
+    this.drawUnitCircleArc(startAngle, endAngle);
+    this.ctx.setLineDash([]);
+  }
+
+  drawUnitCircleArc(startAngle, endAngle) {
+    // Calculate number of segments based on zoom level and arc length
+    const angleSpan = endAngle - startAngle;
+    const segmentCount = Math.max(32, Math.min(360, Math.floor(angleSpan * 180 / Math.PI * this.viewState.scale)));
+
+    const angleStep = angleSpan / segmentCount;
+
+    this.ctx.beginPath();
+
+    for (let i = 0; i <= segmentCount; i++) {
+      const angle = startAngle + i * angleStep;
+      const x = Math.cos(angle);
+      const y = Math.sin(angle);
+
+      const point = this.mapToCanvas(x, y);
+
+      if (i === 0) {
+        this.ctx.moveTo(point.x, point.y);
+      } else {
+        this.ctx.lineTo(point.x, point.y);
+      }
+    }
+
+    this.ctx.stroke();
   }
 
   drawComplexPlane() {
@@ -534,21 +655,12 @@ resizeCanvas() {
     this.ctx.textAlign = 'center';
     this.ctx.fillText('Real', this.complexCanvas.width - 30, zeroY - 10);
 
-    // Draw unit circle
-    this.ctx.strokeStyle = '#e74c3c';
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([5, 5]);
+    this.drawVisibleUnitCircle();
 
+    // Draw unit circle label
     const center = this.mapToCanvas(0, 0);
     const radiusPoint = this.mapToCanvas(1, 0);
     const radius = Math.abs(radiusPoint.x - center.x);
-
-    this.ctx.beginPath();
-    this.ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-    this.ctx.stroke();
-    this.ctx.setLineDash([]);
-
-    // Draw unit circle label
     this.ctx.fillStyle = '#e74c3c';
     this.ctx.font = 'bold 14px Open Sans';
     this.ctx.textAlign = 'center';
@@ -557,87 +669,174 @@ resizeCanvas() {
 
   drawConvergents() {
     if (this.currentConvergents.length === 0) return;
-
+    
     // Draw connecting edges (lines between consecutive convergents)
     this.ctx.strokeStyle = '#3498db';
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
-
-    // Start from the first convergent
+    
+    // Start from the first convergent (C0)
     const firstPoint = this.mapToCanvas(this.currentConvergents[0].re, this.currentConvergents[0].im);
     this.ctx.moveTo(firstPoint.x, firstPoint.y);
-
+    
     // Connect to subsequent convergents up to current step
-    const stepsToShow = this.isAnimating ? Math.min(this.currentStep + 1, this.currentConvergents.length) : this.currentConvergents.length;
-
+    const stepsToShow = this.isAnimating ? 
+        Math.min(this.currentStep + 1, this.currentConvergents.length) : 
+        this.currentConvergents.length;
+    
     for (let i = 1; i < stepsToShow; i++) {
-      const point = this.mapToCanvas(this.currentConvergents[i].re, this.currentConvergents[i].im);
-      this.ctx.lineTo(point.x, point.y);
+        const point = this.mapToCanvas(this.currentConvergents[i].re, this.currentConvergents[i].im);
+        this.ctx.lineTo(point.x, point.y);
     }
-
+    
     this.ctx.stroke();
-
+    
     // Draw convergents as points
     for (let i = 0; i < stepsToShow; i++) {
-      const convergent = this.currentConvergents[i];
-      const point = this.mapToCanvas(convergent.re, convergent.im);
-
-      // Determine color based on position in sequence
-      let color;
-      if (i === stepsToShow - 1 && this.isAnimating) {
-        color = '#e74c3c'; // Current convergent (if animating)
-      } else if (i === this.currentConvergents.length - 1) {
-        color = '#2ecc71'; // Final convergent
-      } else {
-        color = '#3498db'; // Intermediate convergents
-      }
-
-      // Draw point
-      this.ctx.fillStyle = color;
-      this.ctx.beginPath();
-
-      // Make the current or final convergent larger
-      const radius = (i === stepsToShow - 1 && this.isAnimating) || i === this.currentConvergents.length - 1 ? 8 : 6;
-      this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-      this.ctx.fill();
-
-      // Draw white border
-      this.ctx.strokeStyle = 'white';
-      this.ctx.lineWidth = 2;
-      this.ctx.stroke();
-
-      // Draw convergent label (just the number)
-      this.ctx.fillStyle = '#2c3e50';
-      this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Open Sans' : '10px Open Sans';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(`C${i + 1}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
+        const convergent = this.currentConvergents[i];
+        const point = this.mapToCanvas(convergent.re, convergent.im);
+        
+        // Determine color based on position in sequence
+        let color;
+        if (i === stepsToShow - 1 && this.isAnimating) {
+            color = '#e74c3c'; // Current convergent (if animating)
+        } else if (i === this.currentConvergents.length - 1) {
+            color = '#2ecc71'; // Final convergent
+        } else {
+            color = '#3498db'; // Intermediate convergents
+        }
+        
+        // Draw point
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        
+        // Make the current or final convergent larger
+        const radius = (i === stepsToShow - 1 && this.isAnimating) || i === this.currentConvergents.length - 1 ? 8 : 6;
+        this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw white border
+        this.ctx.strokeStyle = 'white';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        
+        // Draw convergent label (C0, C1, C2, ...)
+        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Open Sans' : '10px Open Sans';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`C${i}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
     }
-
-    // Update display info
+    
+    // Update display info - show count of VALID convergents
     if (this.currentConvergents.length > 0) {
-      const currentIndex = this.isAnimating ? Math.min(this.currentStep, this.currentConvergents.length - 1) : this.currentConvergents.length - 1;
-      const currentConv = this.currentConvergents[currentIndex];
-      this.currentConvergentElement.textContent = `C${currentIndex + 1}`;
-      this.totalConvergentsElement.textContent = this.currentConvergents.length;
-
-      // Calculate distance to unit circle with full precision
-      const distance = Math.abs(currentConv.magnitude() - 1);
-      this.distanceToUnitCircleElement.textContent = distance.toFixed(18).replace(/\.?0+$/, '');
+        const currentIndex = this.isAnimating ? 
+            Math.min(this.currentStep, this.currentConvergents.length - 1) : 
+            this.currentConvergents.length - 1;
+        const currentConv = this.currentConvergents[currentIndex];
+        this.currentConvergentElement.textContent = `C${currentIndex}`;
+        this.totalConvergentsElement.textContent = this.currentConvergents.length; // Only valid ones
+        
+        // Calculate distance to unit circle with full precision
+        const distance = Math.abs(currentConv.magnitude() - 1);
+        this.distanceToUnitCircleElement.textContent = distance.toFixed(18).replace(/\.?0+$/, '');
     }
-  }
+}
+
+  // drawConvergents() {
+  //   if (this.currentConvergents.length === 0) return;
+
+  //   // Draw connecting edges (lines between consecutive convergents)
+  //   this.ctx.strokeStyle = '#3498db';
+  //   this.ctx.lineWidth = 2;
+  //   this.ctx.beginPath();
+
+  //   // Start from the first convergent
+  //   const firstPoint = this.mapToCanvas(this.currentConvergents[0].re, this.currentConvergents[0].im);
+  //   this.ctx.moveTo(firstPoint.x, firstPoint.y);
+
+  //   // Connect to subsequent convergents up to current step
+  //   const stepsToShow = this.isAnimating ?
+  //     Math.min(this.currentStep + 1, this.currentConvergents.length) :
+  //     this.currentConvergents.length;
+
+  //   for (let i = 1; i < stepsToShow; i++) {
+  //     const point = this.mapToCanvas(this.currentConvergents[i].re, this.currentConvergents[i].im);
+  //     this.ctx.lineTo(point.x, point.y);
+  //   }
+
+  //   this.ctx.stroke();
+
+  //   // Draw convergents as points
+  //   for (let i = 0; i < stepsToShow; i++) {
+  //     const convergent = this.currentConvergents[i];
+  //     const point = this.mapToCanvas(convergent.re, convergent.im);
+
+  //     // Determine color based on position in sequence
+  //     let color;
+  //     if (i === stepsToShow - 1 && this.isAnimating) {
+  //       color = '#e74c3c'; // Current convergent (if animating)
+  //     } else if (i === this.currentConvergents.length - 1) {
+  //       color = '#2ecc71'; // Final convergent
+  //     } else {
+  //       color = '#3498db'; // Intermediate convergents
+  //     }
+
+  //     // Draw point
+  //     this.ctx.fillStyle = color;
+  //     this.ctx.beginPath();
+
+  //     // Make the current or final convergent larger
+  //     const radius = (i === stepsToShow - 1 && this.isAnimating) || i === this.currentConvergents.length - 1 ? 8 : 6;
+  //     this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+  //     this.ctx.fill();
+
+  //     // Draw white border
+  //     this.ctx.strokeStyle = 'white';
+  //     this.ctx.lineWidth = 2;
+  //     this.ctx.stroke();
+
+  //     // Draw convergent label
+  //     this.ctx.fillStyle = '#2c3e50';
+  //     this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Open Sans' : '10px Open Sans';
+  //     this.ctx.textAlign = 'center';
+  //     this.ctx.fillText(`C${i + 1}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
+  //   }
+
+  //   // Update display info - show count of VALID convergents
+  //   if (this.currentConvergents.length > 0) {
+  //     const currentIndex = this.isAnimating ?
+  //       Math.min(this.currentStep, this.currentConvergents.length - 1) :
+  //       this.currentConvergents.length - 1;
+  //     const currentConv = this.currentConvergents[currentIndex];
+  //     this.currentConvergentElement.textContent = `C${currentIndex + 1}`;
+  //     this.totalConvergentsElement.textContent = this.currentConvergents.length; // Only valid ones
+
+  //     // Calculate distance to unit circle with full precision
+  //     const distance = Math.abs(currentConv.magnitude() - 1);
+  //     this.distanceToUnitCircleElement.textContent = distance.toFixed(18).replace(/\.?0+$/, '');
+  //   }
+  // }
 
   drawScene() {
     this.drawComplexPlane();
     this.drawConvergents();
   }
 
-  updateCoefficientsList(coefficients) {
+  updateCoefficientsList(coefficients, redundantStartIndex) {
     this.coefficientsList.innerHTML = '';
 
     coefficients.forEach((coeff, index) => {
       const coeffElement = document.createElement('div');
       coeffElement.className = 'point-item';
-      // FIX 5.1: Display coefficients as integers (a + bi)
+
+      // Determine if this coefficient is redundant
+      if (redundantStartIndex >= 0 && index >= redundantStartIndex) {
+        coeffElement.classList.add('redundant');
+      } else {
+        coeffElement.classList.add('valid');
+      }
+
+      // Display coefficient as integers
       const realInt = Math.round(coeff.re);
       const imagInt = Math.round(coeff.im);
       const sign = imagInt >= 0 ? '+' : '';
@@ -646,27 +845,34 @@ resizeCanvas() {
     });
   }
 
-  updateConvergentsList(convergents) {
+  updateConvergentsList(convergents, redundantStartIndex) {
     this.convergentsList.innerHTML = '';
 
     convergents.forEach((conv, index) => {
       const convElement = document.createElement('div');
       convElement.className = 'point-item';
-      // FIX 5.2: Display convergents with .toFixed(18) precision
+
+      // Determine if this convergent is redundant
+      if (redundantStartIndex >= 0 && index >= redundantStartIndex) {
+        convElement.classList.add('redundant');
+      } else {
+        convElement.classList.add('valid');
+      }
+
+      // Display convergent with precision
       const realStr = conv.re.toFixed(18).replace(/\.?0+$/, '');
       const imagStr = Math.abs(conv.im).toFixed(18).replace(/\.?0+$/, '');
       const sign = conv.im >= 0 ? '+' : '-';
-      convElement.textContent = `C${index + 1}: ${realStr} ${sign} ${imagStr}i`;
+      convElement.textContent = `C${index}: ${realStr} ${sign} ${imagStr}i`;
       this.convergentsList.appendChild(convElement);
     });
   }
 
   generateAndPlot() {
     const angle = parseFloat(this.angleInput.value);
-    const count = parseInt(this.coefficientCountInput.value);
 
-    if (isNaN(angle) || isNaN(count) || count < 1) {
-      alert('Please enter valid angle and coefficient count values.');
+    if (isNaN(angle)) {
+      alert('Please enter a valid angle value.');
       return;
     }
 
@@ -675,26 +881,39 @@ resizeCanvas() {
       clearInterval(this.animationInterval);
       this.isAnimating = false;
     }
+    
+    // Reset view to default (1:1 zoom, centered)
+    this.resetView();
 
     // Reset animation state
     this.currentStep = 0;
 
     try {
-      // Generate coefficients
+      // Generate coefficients with fixed count
       const { d: denominator } = this._toRational(angle);
-      const coefficients = generateCoefficients(denominator, count);
+      const coefficients = generateCoefficients(denominator, this.COEFFICIENT_COUNT);
 
       // Calculate convergents
-      this.currentConvergents = expWithConvergents(angle, count);
+      const allConvergents = expWithConvergents(angle, this.COEFFICIENT_COUNT);
 
-      // Update displays
-      this.updateCoefficientsList(coefficients);
-      this.updateConvergentsList(this.currentConvergents);
+      // Find where convergents become redundant
+      const redundantStartIndex = this.findConvergenceIndex(allConvergents);
+
+      // Store only valid convergents (for canvas display)
+      if (redundantStartIndex >= 0) {
+        this.currentConvergents = allConvergents.slice(0, redundantStartIndex);
+      } else {
+        this.currentConvergents = allConvergents;
+      }
+
+      // Update displays with redundancy information
+      this.updateCoefficientsList(coefficients, redundantStartIndex);
+      this.updateConvergentsList(allConvergents, redundantStartIndex);
 
       // Draw the scene
       this.drawScene();
 
-      // Start animation
+      // Start animation (only for valid convergents)
       this.startAnimation();
     } catch (error) {
       alert(`Error: ${error.message}`);
@@ -713,19 +932,19 @@ resizeCanvas() {
     this.isAnimating = true;
     this.currentStep = 0;
 
-    // Animate step by step
+    // Animate only valid convergents
     this.animationInterval = setInterval(() => {
       this.currentStep++;
       this.drawScene();
 
-      // Stop when we've shown all convergents
+      // Stop when we've shown all valid convergents
       if (this.currentStep >= this.currentConvergents.length) {
         clearInterval(this.animationInterval);
         this.isAnimating = false;
         // Show final state
         this.drawScene();
       }
-    }, 800); // 0.8 seconds per step
+    }, 100); // 0.8 seconds per step
   }
 
   generateRandomAngle() {
@@ -755,41 +974,16 @@ resizeCanvas() {
     this.drawScene();
   }
 
-  // Zoom to the last convergent and one previous convergent with different value
   zoomToLastConvergent() {
+    // Use currentConvergents which already excludes redundant convergents
     if (this.currentConvergents.length < 2) {
-      alert('Need at least 2 convergents to zoom.');
+      alert('Need at least 2 valid convergents to zoom.');
       return;
     }
 
     const lastIndex = this.currentConvergents.length - 1;
     const lastConv = this.currentConvergents[lastIndex];
-
-    // Find the previous convergent with a different value (with high precision comparison)
-    const epsilon = 1e-15;
-    let prevIndex = lastIndex - 1;
-    let foundDifferent = false;
-
-    while (prevIndex >= 0) {
-      const prevConv = this.currentConvergents[prevIndex];
-
-      // Compare real and imaginary parts with high precision
-      const reDiff = Math.abs(prevConv.re - lastConv.re);
-      const imDiff = Math.abs(prevConv.im - lastConv.im);
-
-      if (reDiff > epsilon || imDiff > epsilon) {
-        foundDifferent = true;
-        break;
-      }
-      prevIndex--;
-    }
-
-    if (!foundDifferent) {
-      alert('All convergents have the same value (within floating point precision).');
-      return;
-    }
-
-    const prevConv = this.currentConvergents[prevIndex];
+    const prevConv = this.currentConvergents[lastIndex - 1]; // Second-to-last is guaranteed to exist
 
     // Calculate the bounding box that contains both convergents
     const minReal = Math.min(lastConv.re, prevConv.re);
@@ -815,7 +1009,6 @@ resizeCanvas() {
     const boundsRange = 2.4;
 
     // Calculate the required scale to fit the padded bounding box
-    // The scale factor relates to how much of the [-1.2, 1.2] range we show
     const requiredScaleX = canvasSize / paddedWidth;
     const requiredScaleY = canvasSize / paddedHeight;
     const requiredScale = Math.min(requiredScaleX, requiredScaleY) * (boundsRange / canvasSize);

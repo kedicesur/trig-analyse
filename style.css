@@ -363,6 +363,20 @@ canvas {
     display: flex;
     align-items: center; /* Vertically center content */
 }
+/* Style for redundant coefficients/convergents */
+.point-item.redundant {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 3px solid #dc3545;
+    opacity: 0.8;
+}
+
+/* Style for non-redundant items */
+.point-item.valid {
+    background-color: #e8f4fc;
+    color: #2c3e50;
+    border-left: 3px solid #3498db;
+}
 
 .convergent-info {
     display: flex;

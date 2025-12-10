@@ -1,147 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complex Continued Fraction Convergent Visualizer</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complex Continued Fraction Convergent Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&display=swap"
+    rel="stylesheet">
 </head>
+
 <body>
-    <div class="container">
-        <header>
-            <h1>Complex Continued Fraction Convergent Visualizer</h1>
-            <p class="subtitle">Visualize convergents of complex continued fractions on the unit circle</p>
-        </header>
-        
-        <div class="content">
-            <div class="input-section">
-                <h2>Generate Coefficients</h2>
-                <p>Enter an angle and coefficient count to generate coefficients for e^(iθ)</p>
-                
-                <div class="input-group">
-                    <label for="angleInput">Angle (decimal radians):</label>
-                    <input type="number" id="angleInput" value="1.0" step="0.1" min="-10" max="10">
-                </div>
-                
-                <div class="input-group">
-                    <label>Angle (as rational × π):</label>
-                    <div class="rational-pi-container">
-                        <div class="fraction-container">
-                            <div class="fraction">
-                                <input type="number" id="numeratorInput" class="fraction-input" placeholder="Numerator" value="1">
-                                <div class="vinculum"></div>
-                                <input type="number" id="denominatorInput" class="fraction-input" placeholder="Denominator" value="1">
-                            </div>
-                            <div class="times-pi">·</div>
-                        </div>
-                        <div class="pi-approximation-container">
-                            <label for="piDropdown" class="pi-dropdown-label">Select π Approximation</label>
-                            <select id="piDropdown" class="pi-dropdown">
-                                <option value="1">1 (exact)</option>
-                                <option value="22/7">22/7</option>
-                                <option value="333/106">333/106</option>
-                                <option value="355/113">355/113</option>
-                                <option value="103993/33102">103993/33102</option>
-                                <option value="104348/33215">104348/33215</option>
-                                <option value="208341/66317">208341/66317</option>
-                                <option value="312689/99532">312689/99532</option>
-                                <option value="833719/265381">833719/265381</option>
-                                <option value="1146408/364913">1146408/364913</option>
-                                <option value="4272943/1360120">4272943/1360120</option>
-                                <option value="5419351/1725033">5419351/1725033</option>
-                                <option value="80143857/25510582">80143857/25510582</option>
-                                <option value="245850922/78256779" selected>245850922/78256779</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="input-group">
-                    <label for="coefficientCount">Coefficient Count:</label>
-                    <input type="number" id="coefficientCount" value="12" min="1" max="50">
-                </div>
-                
-                <div class="controls">
-                    <button id="plotButton">Generate & Plot Convergents</button>
-                    <button id="generateCoefficients">Generate Random Angle</button>
-                </div>
-                
-                <div class="coefficients-convergents-grid">
-                    <div class="grid-column coefficients-column">
-                        <h3>Generated Coefficients</h3>
-                        <div id="coefficientsList" class="compact-point-list">
-                            <!-- Coefficients will be listed here -->
-                        </div>
-                    </div>
-                    <div class="grid-column convergents-column">
-                        <h3>Convergent Sequence</h3>
-                        <div id="convergentsList" class="compact-point-list">
-                            <!-- Convergents will be listed here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="canvas-section">
-                <h2>Complex Plane Visualization</h2>
-                <div class="canvas-container" id="canvasContainer">
-                    <canvas id="complexCanvas"></canvas>
-                </div>
-                
-                <div class="zoom-controls">
-                    <button id="resetView">Reset View</button>
-                    <button id="zoomToLast">Zoom to Last Convergent</button>
-                </div>
-                <div class="convergent-info">
-                    <div class="convergent-item">
-                        <div>Current Convergent:</div>
-                        <div id="currentConvergent">0</div>
-                    </div>
-                    <div class="convergent-item">
-                        <div>Total Convergents:</div>
-                        <div id="totalConvergents">0</div>
-                    </div>
-                    <div class="convergent-item">
-                        <div>Distance to Unit Circle:</div>
-                        <div id="distanceToUnitCircle">0</div>
-                    </div>
-                </div>
-                
-                <div class="info-panel">
-                    <h3>Visualization Info</h3>
-                    <p>The unit circle is drawn in red. Convergents approach e^(iθ) as more coefficients are used.</p>
-                    <p>Drag the canvas to pan, use mouse wheel to zoom.</p>
-                    <p>Hover over convergents to see their exact values.</p>
-                </div>
-            </div>
+  <div class="container">
+    <header>
+      <h1>Complex Continued Fraction Convergent Visualizer</h1>
+      <p class="subtitle">Visualize convergents of complex continued fractions on the unit circle</p>
+    </header>
+
+    <div class="content">
+      <div class="input-section">
+        <h2>Generate Coefficients</h2>
+        <p>Enter an angle and coefficient count to generate coefficients for e^(iθ)</p>
+
+        <div class="input-group">
+          <label for="angleInput">Angle (decimal radians):</label>
+          <input type="number" id="angleInput" value="1.0" step="0.1" min="-10" max="10">
         </div>
-        
-        <div class="instructions">
-            <h2>How It Works</h2>
-            <ul>
-                <li>Enter an angle in decimal radians or as a rational multiple of π</li>
-                <li>Select a π approximation from the dropdown (1 gives exact radians)</li>
-                <li>The system generates coefficients for a complex simple continued fraction</li>
-                <li>Each convergent (approximation) is calculated step by step and plotted</li>
-                <li>The red circle is the unit circle - convergents should approach it</li>
-                <li>The final convergent approximates e^(iθ) where θ is the input angle</li>
-                <li>Drag the canvas with your mouse to pan the view</li>
-                <li>Use mouse wheel to zoom in/out</li>
-                <li>Click "Zoom to Last Convergent" to focus on the final convergents</li>
-                <li>Click "Generate Random Angle" for a random example</li>
-            </ul>
+
+        <div class="input-group">
+          <label>Angle (as rational × π):</label>
+          <div class="rational-pi-container">
+            <div class="fraction-container">
+              <div class="fraction">
+                <input type="number" id="numeratorInput" class="fraction-input" placeholder="Numerator" value="1">
+                <div class="vinculum"></div>
+                <input type="number" id="denominatorInput" class="fraction-input" placeholder="Denominator" value="1">
+              </div>
+              <div class="times-pi">·</div>
+            </div>
+            <div class="pi-approximation-container">
+              <label for="piDropdown" class="pi-dropdown-label">Select π Approximation</label>
+              <select id="piDropdown" class="pi-dropdown">
+                <option value="1">1 (exact)</option>
+                <option value="22/7">22/7</option>
+                <option value="333/106">333/106</option>
+                <option value="355/113">355/113</option>
+                <option value="103993/33102">103993/33102</option>
+                <option value="104348/33215">104348/33215</option>
+                <option value="208341/66317">208341/66317</option>
+                <option value="312689/99532">312689/99532</option>
+                <option value="833719/265381">833719/265381</option>
+                <option value="1146408/364913">1146408/364913</option>
+                <option value="4272943/1360120">4272943/1360120</option>
+                <option value="5419351/1725033">5419351/1725033</option>
+                <option value="80143857/25510582">80143857/25510582</option>
+              </select>
+            </div>
+          </div>
         </div>
-        
-        <footer>
-            <p>Complex Continued Fraction Convergent Visualizer &copy; 2023 | Based on complex simple continued fractions</p>
-        </footer>
+
+        <div class="controls">
+          <button id="plotButton">Generate & Plot Convergents</button>
+          <button id="generateCoefficients">Generate Random Angle</button>
+        </div>
+
+        <div class="coefficients-convergents-grid">
+          <div class="grid-column coefficients-column">
+            <h3>Generated Coefficients</h3>
+            <div id="coefficientsList" class="compact-point-list">
+              <!-- Coefficients will be listed here -->
+            </div>
+          </div>
+          <div class="grid-column convergents-column">
+            <h3>Convergent Sequence</h3>
+            <div id="convergentsList" class="compact-point-list">
+              <!-- Convergents will be listed here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="canvas-section">
+        <h2>Complex Plane Visualization</h2>
+        <div class="canvas-container" id="canvasContainer">
+          <canvas id="complexCanvas"></canvas>
+        </div>
+
+        <div class="zoom-controls">
+          <button id="resetView">Reset View</button>
+          <button id="zoomToLast">Zoom to Last Convergent</button>
+        </div>
+        <div class="convergent-info">
+          <div class="convergent-item">
+            <div>Current Convergent:</div>
+            <div id="currentConvergent">0</div>
+          </div>
+          <div class="convergent-item">
+            <div>Total Convergents:</div>
+            <div id="totalConvergents">0</div>
+          </div>
+          <div class="convergent-item">
+            <div>Distance to Unit Circle:</div>
+            <div id="distanceToUnitCircle">0</div>
+          </div>
+        </div>
+
+        <div class="info-panel">
+          <h3>Visualization Info</h3>
+          <p>The unit circle is drawn in red. Convergents approach e^(iθ) as more coefficients are used.</p>
+          <p>Redundant convergents (marked in red) are excluded from visualization when they stop changing.</p>
+          <p>Drag the canvas to pan, use mouse wheel to zoom.</p>
+          <p>Hover over convergents to see their exact values.</p>
+        </div>
+      </div>
     </div>
 
-    <!-- JavaScript Modules -->
-    <script type="module" src="Complex.js"></script>
-    <script type="module" src="Trig.js"></script>
-    <script type="module" src="UI.js"></script>
-    <script type="module" src="main.js"></script>
+    <div class="instructions">
+      <h2>How It Works</h2>
+      <ul>
+        <li>Enter an angle in decimal radians or as a rational multiple of π</li>
+        <li>Select a π approximation from the dropdown (1 gives exact radians)</li>
+        <li>The system generates coefficients for a complex simple continued fraction</li>
+        <li>Each convergent (approximation) is calculated step by step and plotted</li>
+        <li>The red circle is the unit circle - convergents should approach it</li>
+        <li>The final convergent approximates e^(iθ) where θ is the input angle</li>
+        <li>Drag the canvas with your mouse to pan the view</li>
+        <li>Use mouse wheel to zoom in/out</li>
+        <li>Click "Zoom to Last Convergent" to focus on the final convergents</li>
+        <li>Click "Generate Random Angle" for a random example</li>
+      </ul>
+    </div>
+
+    <footer>
+      <p>Complex Continued Fraction Convergent Visualizer &copy; 2023 | Based on complex simple continued fractions</p>
+    </footer>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script type="module" src="Complex.js"></script>
+  <script type="module" src="Trig.js"></script>
+  <script type="module" src="UI.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
+
 </html>
