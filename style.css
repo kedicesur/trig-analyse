@@ -394,6 +394,265 @@ canvas {
     text-align: center;
 }
 
+/* Trigonometric Comparison Section - COMPACT VERSION */
+.trig-comparison {
+    margin-top: 25px;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.trig-comparison h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eaeaea;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+/* COMPACT GRID */
+.comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.comparison-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    border-top: 4px solid #3498db;
+    transition: transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Prevents overflow */
+}
+
+.comparison-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Card color themes */
+.cosine-card {
+    border-top-color: #e74c3c;
+}
+
+.sine-card {
+    border-top-color: #2ecc71;
+}
+
+.tangent-card {
+    border-top-color: #9b59b6;
+}
+
+/* Header - more compact */
+.comparison-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eaeaea;
+    min-height: 30px;
+}
+
+.trig-symbol {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2c3e50;
+    font-family: 'Roboto', sans-serif;
+}
+
+.trig-name {
+    font-size: 11px;
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #eaeaea;
+}
+
+/* VALUES - COMPACT STACKED LAYOUT */
+.comparison-values {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+
+.value-group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 40px;
+}
+
+.value-label {
+    position: absolute;
+    top: -6px;
+    left: 8px;
+    font-size: 10px;
+    color: #7f8c8d;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background-color: #f8f9fa; /* Match card background */
+    padding: 0 5px;
+    z-index: 2;
+    white-space: nowrap;
+}
+
+.value {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 8px 6px 6px 6px;
+    border: 2px solid;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background-color: white;
+    line-height: 1.2;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-top: 3px;
+}
+
+/* Make sure the value box doesn't shrink */
+.value::before {
+    content: '';
+    display: block;
+    height: 1px;
+    visibility: hidden;
+}
+
+/* Value color themes */
+.convergent-value {
+    color: #3498db;
+    border-color: #3498db;
+    background-color: rgba(52, 152, 219, 0.03);
+}
+
+.js-value {
+    color: #2ecc71;
+    border-color: #2ecc71;
+    background-color: rgba(46, 204, 113, 0.03);
+}
+
+.difference-group {
+    margin-top: 5px;
+    padding-top: 10px;
+    border-top: 1px dashed #ddd;
+}
+
+.difference-group .value-label {
+    top: 4px; /* Adjust for border */
+}
+
+.diff-value {
+    color: #e74c3c;
+    border-color: #e74c3c;
+    background-color: rgba(231, 76, 60, 0.03);
+}
+
+/* Convergence Indicator */
+.convergence-indicator {
+    margin-top: 15px;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #f39c12;
+}
+
+.indicator-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.indicator-bar {
+    height: 10px;
+    background-color: #ecf0f1;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.indicator-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e74c3c, #f39c12, #2ecc71);
+    border-radius: 5px;
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.indicator-status {
+    font-size: 12px;
+    font-family: 'Roboto Mono', monospace;
+    color: #7f8c8d;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Tooltip for values */
+.value {
+    position: relative;
+    cursor: help;
+}
+
+.value:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: pre-wrap;
+    max-width: 300px;
+    z-index: 1000;
+    margin-bottom: 5px;
+    pointer-events: none;
+}
+
+/* Animation for value updates */
+@keyframes highlightValue {
+    0% { background-color: rgba(52, 152, 219, 0.1); }
+    100% { background-color: rgba(255, 255, 255, 0.7); }
+}
+
+/* .value.updated {
+    animation: highlightValue 0.5s ease;
+} */
+
+/* Color transitions for indicator bar */
+@keyframes pulseIndicator {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+}
+
+/* .indicator-fill.animating {
+    animation: pulseIndicator 2s ease-in-out infinite;
+} */
+
 .info-panel {
     margin-top: 20px;
     padding: 15px;
@@ -496,9 +755,39 @@ footer {
         grid-template-columns: 1fr 1fr;
         height: 350px; /* Slightly smaller on mobile */
     }
+
+    .comparison-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
     
     .canvas-container {
         height: auto; /* Let aspect-ratio handle it */
+    }
+}
+
+@media (max-width: 900px) {
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .trig-symbol {
+        font-size: 16px;
+    }
+    
+    .trig-name {
+        font-size: 10px;
+        padding: 1px 4px;
+    }
+    
+    .value {
+        font-size: 9px;
+        padding: 6px 4px 4px 4px;
+        min-height: 28px;
+    }
+    
+    .value-label {
+        font-size: 9px;
+        left: 6px;
     }
 }
 
@@ -525,6 +814,31 @@ footer {
     .coefficients-convergents-grid {
         grid-template-columns: 1fr;
         height: 300px; /* Stack columns on mobile */
+    }
+
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+    .comparison-card {
+        padding: 10px;
+    }
+    
+    .comparison-header {
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+    }
+    
+    .value-group {
+        min-height: 36px;
+    }
+    
+    .value {
+        min-width: 100px;
+        font-size: 12px;
+    }
+    
+    .trig-symbol {
+        font-size: 20px;
     }
     
     .convergent-tooltip {
