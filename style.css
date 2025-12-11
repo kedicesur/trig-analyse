@@ -511,9 +511,9 @@ canvas {
 
 .value {
     font-family: 'Roboto Mono', monospace;
-    font-size: 10px;
+    font-size: 9px; /* Smaller font to fit more digits */
     font-weight: 600;
-    padding: 8px 6px 6px 6px;
+    padding: 6px 4px 4px 4px;
     border: 2px solid;
     border-radius: 4px;
     width: 100%;
@@ -522,8 +522,8 @@ canvas {
     text-overflow: ellipsis;
     white-space: nowrap;
     background-color: white;
-    line-height: 1.2;
-    min-height: 32px;
+    line-height: 1.1;
+    min-height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -620,16 +620,21 @@ canvas {
     bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.9);
     color: white;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 4px;
     font-size: 11px;
     white-space: pre-wrap;
-    max-width: 300px;
-    z-index: 1000;
+    max-width: 400px;
+    min-width: 200px;
+    z-index: 10000;
     margin-bottom: 5px;
     pointer-events: none;
+    text-align: left;
+    line-height: 1.4;
+    font-family: 'Roboto Mono', monospace;
+    word-break: break-all;
 }
 
 /* Animation for value updates */
@@ -833,8 +838,9 @@ footer {
     }
     
     .value {
-        min-width: 100px;
-        font-size: 12px;
+        font-size: 8px;
+        min-height: 24px;
+        padding: 4px 3px 3px 3px;
     }
     
     .trig-symbol {

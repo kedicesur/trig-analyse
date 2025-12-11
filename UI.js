@@ -362,10 +362,10 @@ export class ComplexVisualizerUI {
     const index = this.hoveredConvergent.index;
 
     // Format content
-    const realStr = conv.re.toFixed(18).replace(/\.?0+$/, '');
-    const imagStr = Math.abs(conv.im).toFixed(18).replace(/\.?0+$/, '');
+    const realStr = conv.re.toFixed(17).replace(/\.?0+$/, '');
+    const imagStr = Math.abs(conv.im).toFixed(17).replace(/\.?0+$/, '');
     const sign = conv.im >= 0 ? '+' : '-';
-    const magnitudeStr = conv.magnitude().toFixed(18).replace(/\.?0+$/, '');
+    const magnitudeStr = conv.magnitude().toFixed(17).replace(/\.?0+$/, '');
 
     this.tooltip.innerHTML = `
       <h4>Convergent C${index}</h4>
@@ -759,7 +759,7 @@ export class ComplexVisualizerUI {
 
       // Calculate distance to unit circle with full precision
       const distance = Math.abs(currentConv.magnitude() - 1);
-      this.distanceToUnitCircleElement.textContent = distance.toFixed(18).replace(/\.?0+$/, '');
+      this.distanceToUnitCircleElement.textContent = distance.toFixed(17).replace(/\.?0+$/, '');
         
       // Update trigonometric comparison (use last generated angle)
       if (this.lastGeneratedAngle !== null) {
@@ -811,8 +811,8 @@ export class ComplexVisualizerUI {
       }
 
       // Display convergent with precision
-      const realStr = conv.re.toFixed(18).replace(/\.?0+$/, '');
-      const imagStr = Math.abs(conv.im).toFixed(18).replace(/\.?0+$/, '');
+      const realStr = conv.re.toFixed(17).replace(/\.?0+$/, '');
+      const imagStr = Math.abs(conv.im).toFixed(17).replace(/\.?0+$/, '');
       const sign = conv.im >= 0 ? '+' : '-';
       convElement.textContent = `C${index}: ${realStr} ${sign} ${imagStr}i`;
       this.convergentsList.appendChild(convElement);
@@ -986,14 +986,8 @@ export class ComplexVisualizerUI {
  * @param {Complex} convergent - The latest convergent
  * @param {number} angle - Angle in radians
  */
-  updateTrigComparison(convergent, angle) {
 
-    // Helper function to set value and tooltip
-    const setValueWithTooltip = (element, value, isDiff = false) => {
-      const formatted = formatValue(value, isDiff);
-      element.textContent = formatted;
-      element.title = formatted; // Set tooltip to full value
-    };
+  updateTrigComparison(convergent, angle) {
     // Store the angle for potential reuse
     this.lastGeneratedAngle = angle;
 
@@ -1037,30 +1031,60 @@ export class ComplexVisualizerUI {
       diffTan = Math.abs(jsTan - convTan);
     }
 
-    // Format values with appropriate precision
-    const formatValue = (value, isDiff = false) => {
+    // Formatting function for full double precision (17 digits)
+    const formatFullPrecision = (value) => {
       if (Math.abs(value) === Infinity) {
         return value > 0 ? '∞' : '-∞';
       }
 
-      if (Math.abs(value) < 1e-15) {
+      if (isNaN(value)) {
+        return 'NaN';
+      }
+
+      if (value === 0) {
         return '0';
       }
 
-      // Use scientific notation for very small differences
-      if (isDiff && value < 1e-10) {
-        return value.toExponential(6);
+      const absValue = Math.abs(value);
+
+      // Use toPrecision(17) for maximum double precision
+      if (absValue >= 1e15 || absValue <= 1e-15) {
+        // For extremely large or small numbers, use scientific notation
+        return value.toExponential(16); // 16 digits after decimal in scientific notation
       }
 
-      // For regular values, use fixed notation with appropriate decimals
-      const absValue = Math.abs(value);
-      if (absValue < 0.0001 || absValue >= 10000) {
-        return value.toExponential(6);
-      } else {
-        // Show more decimals for smaller numbers
-        const decimals = Math.max(4, Math.min(12, 8 - Math.floor(Math.log10(absValue))));
-        return value.toFixed(decimals);
+      // For regular numbers, use toFixed(17)
+      return value.toFixed(17);
+    };
+
+    // Clean trailing zeros
+    const cleanTrailingZeros = (str) => {
+      return str.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+    };
+
+    // Helper function to set value and tooltip
+    const setValueWithTooltip = (element, value, isDiff = false) => {
+      let formatted = formatFullPrecision(value);
+
+      // For differences, use scientific notation for very small values
+      if (isDiff) {
+        const absValue = Math.abs(value);
+        if (absValue < 1e-15) {
+          formatted = value.toExponential(16);
+        } else if (absValue < 1e-10) {
+          formatted = value.toExponential(10);
+        } else if (absValue < 0.0001) {
+          formatted = value.toExponential(6);
+        }
       }
+
+      // Clean trailing zeros for fixed-point notation
+      if (!formatted.includes('e') && !formatted.includes('∞')) {
+        formatted = cleanTrailingZeros(formatted);
+      }
+
+      element.textContent = formatted;
+      element.title = `${formatted}\nRaw value: ${value}`;
     };
 
     // Update cosine display
@@ -1077,6 +1101,29 @@ export class ComplexVisualizerUI {
     setValueWithTooltip(this.convergentTanElement, convTan);
     setValueWithTooltip(this.jsTanElement, jsTan);
     setValueWithTooltip(this.diffTanElement, diffTan, true);
+
+    // Add highlight animation
+    const highlightElement = (element) => {
+      element.classList.remove('updated');
+      void element.offsetWidth; // Trigger reflow
+      element.classList.add('updated');
+    };
+
+    highlightElement(this.convergentCosElement);
+    highlightElement(this.jsCosElement);
+    highlightElement(this.diffCosElement);
+    highlightElement(this.convergentSinElement);
+    highlightElement(this.jsSinElement);
+    highlightElement(this.diffSinElement);
+    highlightElement(this.convergentTanElement);
+    highlightElement(this.jsTanElement);
+    highlightElement(this.diffTanElement);
+
+    // Animate indicator bar
+    this.convergenceBarElement.classList.add('animating');
+    setTimeout(() => {
+      this.convergenceBarElement.classList.remove('animating');
+    }, 2000);
 
     // Update convergence indicator
     this.updateConvergenceIndicator(diffCos, diffSin, diffTan);

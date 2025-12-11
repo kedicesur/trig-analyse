@@ -43,7 +43,7 @@ class Complex {
   magnitude() {
     return Math.hypot(this.re, this.im);
   }
-  
+
   normalize() {
     const mag = this.magnitude();
     if (mag === 0) return Complex.ZERO;
@@ -58,7 +58,7 @@ class Complex {
     return new Complex(this.re, -this.im);
   }
 
-  toString(precision = 15) {
+  toString(precision = 17) {  // Changed from 15 to 17
     const sign = this.im < 0 ? '-' : '+';
     return `${this.re.toFixed(precision)} ${sign} ${Math.abs(this.im).toFixed(precision)}i`;
   }
