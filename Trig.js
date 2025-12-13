@@ -1,30 +1,7 @@
 // Trig.js - Trigonometric functions using continued fractions
 
 import Complex from './Complex.js';
-
-/**
- * Convert a decimal number to a rational approximation
- * @private
- */
-function _toRational(x) {
-  if (!isFinite(x)) return { n: NaN, d: NaN };
-  
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x);
-
-  let m = Math.floor(x);
-  if (x === m) return { n: sign * m, d: 1 };
-
-  let x_ = 1 / (x - m);
-  let p_ = 1, q_ = 0, p = m, q = 1;
-
-  while (Math.abs(x - p / q) > Number.EPSILON) {
-    m = Math.floor(x_);
-    x_ = 1 / (x_ - m);
-    [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
-  }
-  return { n: sign * p, d: q };
-}
+import { toRational } from './Utils.js';
 
 /**
  * Generates the first k CSCF coefficients for e^(i*1/n) where n > 1.
@@ -49,7 +26,15 @@ export function generateCoefficients(n, k) {
                       , new Complex(2, 0)
                       , new Complex(0, 15)
                       , new Complex(-2, 0)
-                      ];
+                      , new Complex(0, -17)
+                      , new Complex(2, 0)
+                      , new Complex(0, 19)
+                      , new Complex(-2, 0)
+                      , new Complex(0, -21)
+                      , new Complex(2, 0)
+                      , new Complex(0, 23)
+                      , new Complex(-2, 0)
+                      ].slice(0,k);
   const coefficients = [];
   for (let c = 0; c < k; c++) {
     let re = 0, im = 0;
@@ -113,7 +98,7 @@ export function computeAllConvergents(coefficients) {
  */
 function _getBaseUnit(n, terms) {
   if (n === 1) {
-    return new Complex(0.5403023058681398, 0.8414709848078965);
+    return new Complex(0.5403023058681397, 0.8414709848078965);
   }
 
   const coefficients = generateCoefficients(n, terms);
@@ -122,21 +107,26 @@ function _getBaseUnit(n, terms) {
 }
 
 function _powUnitComplex(base, exponent) {
+  // Normalize base once before exponentiation loops to prevent overflow
+  // This handles cases where the base convergent magnitude > 1 (e.g. 1+1i for q=1)
+  let currentBase = base.normalize();
+  
   let result = Complex.ONE;
-  let currentBase = base;
   let power = Math.abs(exponent);
 
   while (power > 0) {
     if (power % 2 === 1) {
       result = result.multiply(currentBase);
-      result = result.normalize();
+      //dont use excess normalization here
+      //result = result.normalize();
     }
     currentBase = currentBase.multiply(currentBase);
-    currentBase = currentBase.normalize();
-    power = Math.floor(power / 2);
+    //dont use excess normalization here
+    //currentBase = currentBase.normalize();
+    power >>= 1;
   }
 
-  return exponent < 0 ? result.conjugate() : result;
+  return exponent < 0 ? result.normalize().conjugate() : result.normalize();
 }
 
 /**
@@ -155,7 +145,7 @@ export function expWithConvergents(angle, terms = 12) {
     return [Complex.ONE];
   }
 
-  const { n: numerator, d: denominator } = _toRational(angle);
+  const { n: numerator, d: denominator } = toRational(angle);
   
   // Generate coefficients for the denominator
   const coefficients = generateCoefficients(denominator, terms);

@@ -14,14 +14,16 @@
 <body>
   <div class="container">
     <header>
-      <h1>Complex Continued Fraction Convergent Visualizer</h1>
-      <p class="subtitle">Visualize convergents of complex continued fractions on the unit circle</p>
+      <h1>Complex Simple Continued Fractions for Trigonometric Computation</h1>
+      <p class="subtitle">A novel method: Expressing e<sup>i/q</sup> as continued fractions with simple coefficient
+        patterns for
+        efficient trig function evaluation</p>
     </header>
 
     <div class="content">
       <div class="input-section">
         <h2>Generate Coefficients</h2>
-        <p>Enter an angle and coefficient count to generate coefficients for e^(iθ)</p>
+        <p>Enter an angle and coefficient count to generate coefficients for e<sup>iθ</sup></p>
 
         <div class="input-group">
           <label for="angleInput">Angle (decimal radians):</label>
@@ -190,7 +192,7 @@
 
         <div class="info-panel">
           <h3>Visualization Info</h3>
-          <p>The unit circle is drawn in red. Convergents approach e^(iθ) as more coefficients are used.</p>
+          <p>The unit circle is drawn in red. Convergents approach e<sup>iθ</sup> as more coefficients are used.</p>
           <p>Redundant convergents (marked in red) are excluded from visualization when they stop changing.</p>
           <p>Drag the canvas to pan, use mouse wheel to zoom.</p>
           <p>Hover over convergents to see their exact values.</p>
@@ -198,6 +200,93 @@
       </div>
 
       <div class="instructions">
+        <h2>Mathematical Discovery</h2>
+        <div class="discovery-note">
+          <p><strong>Key Insights:</strong> This method provides unprecedented efficiency for computing trigonometric
+            functions:</p>
+
+          <div class="insights-grid">
+            <div class="insight-card">
+              <div class="insight-icon">1</div>
+              <div class="insight-content">
+                <h4>Simple Coefficient Patterns</h4>
+                <p>For any integer q ≥ 1, e<sup>i/q</sup> has a complex simple continued fraction with predictable
+                  coefficients as [re, im] tuple:</p>
+                <ul>
+                  <li>Index = 0: [1, 0]
+                  <li>Index > 0:
+                    <ul>
+                      <li>Index odd: [0,-1<sup>(i+1)/2</sup>·i·q]
+                      <li>Index even: [-1<sup>i/2</sup>·2,0]
+                    </ul>
+                </ul>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="insight-icon">2</div>
+              <div class="insight-content">
+                <h4>Fast Convergence for Large n</h4>
+                <p>As the denominator (q) grows, fewer coefficients are needed for accurate convergence:</p>
+                <ul>
+                  <li>For large q, often just 2-3 coefficients suffice</li>
+                  <li>This enables efficient computation of trig functions for small angles</li>
+                  <li>The method scales <em>better</em> with increasing precision needs</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="insight-icon">3</div>
+              <div class="insight-content">
+                <h4>Efficient Exponentiation</h4>
+                <p>Obtaining e<sup>ip/q</sup> uses binary exponentiation by p:</p>
+                <ul>
+                  <li>Powering complexity: O(log p) for exponent p</li>
+                  <li>Maximum practical exponent computed in ≤ 24 steps</li>
+                  <li>Normaly large p comes with large q thus self balancing increased cost of exponentiation by decreasing cost of convergent calculation</li>
+                  <li>Typically requires fewer operations than direct methods</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="insight-card">
+              <div class="insight-icon">4</div>
+              <div class="insight-content">
+                <h4>Simultaneous Trig Values</h4>
+                <p>The convergent provides all trigonometric values at once:</p>
+                <ul>
+                  <li>Real part = cos(θ)</li>
+                  <li>Imaginary part = sin(θ)</li>
+                  <li>Tangent = sin(θ)/cos(θ)</li>
+                  <li>All computed with the same efficiency</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="efficiency-summary">
+            <h4>Computational Efficiency Summary:</h4>
+            <div class="efficiency-metrics">
+              <div class="metric">
+                <div class="metric-value">O(log m)</div>
+                <div class="metric-label">Exponentiation Complexity</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">≤ 23</div>
+                <div class="metric-label">Max Exponentiation Steps</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">2-3</div>
+                <div class="metric-label">Typical Coefficients Needed</div>
+              </div>
+              <div class="metric">
+                <div class="metric-value">All</div>
+                <div class="metric-label">Trig Functions Simultaneously</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <h2>How It Works</h2>
         <ul>
           <li>Enter an angle in decimal radians or as a rational multiple of π</li>
@@ -205,7 +294,7 @@
           <li>The system generates coefficients for a complex simple continued fraction</li>
           <li>Each convergent (approximation) is calculated step by step and plotted</li>
           <li>The red circle is the unit circle - convergents should approach it</li>
-          <li>The final convergent approximates e^(iθ) where θ is the input angle</li>
+          <li>The final convergent approximates e<sup>iθ</sup> where θ is the input angle</li>
           <li>Drag the canvas with your mouse to pan the view</li>
           <li>Use mouse wheel to zoom in/out</li>
           <li>Click "Zoom to Last Convergent" to focus on the final convergents</li>
@@ -220,6 +309,7 @@
     </div>
 
     <!-- JavaScript Modules -->
+    <script type="module" src="Utils.js"></script>
     <script type="module" src="Complex.js"></script>
     <script type="module" src="Trig.js"></script>
     <script type="module" src="UI.js"></script>

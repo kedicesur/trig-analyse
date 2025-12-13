@@ -1,6 +1,13 @@
 // UI.js - User interface and visualization logic
 
 import { generateCoefficients, expWithConvergents } from './Trig.js';
+import { toRational
+       , formatFullPrecision
+       , cleanTrailingZeros
+       , formatDisplayNumber
+       , formatDifference
+       , highlightElement
+       } from "./Utils.js";
 
 export class ComplexVisualizerUI {
   constructor() {
@@ -9,7 +16,6 @@ export class ComplexVisualizerUI {
     this.numeratorInput = document.getElementById('numeratorInput');
     this.denominatorInput = document.getElementById('denominatorInput');
     this.piDropdown = document.getElementById('piDropdown');
-    this.coefficientCountInput = document.getElementById('coefficientCount');
     this.plotButton = document.getElementById('plotButton');
     this.generateRandomButton = document.getElementById('generateCoefficients');
     this.complexCanvas = document.getElementById('complexCanvas');
@@ -38,7 +44,7 @@ export class ComplexVisualizerUI {
     };
 
     // Number of coefficients/convergents to generate
-    this.COEFFICIENT_COUNT = 16;
+    this.COEFFICIENT_COUNT = 24;
 
     // Current convergents and animation state
     this.currentConvergents = [];
@@ -236,17 +242,46 @@ export class ComplexVisualizerUI {
   findConvergenceIndex(convergents) {
     if (convergents.length < 2) return -1;
 
-    for (let i = 1; i < convergents.length - 1; i++) {
-      const current = convergents[i];
-      const next = convergents[i + 1];
+    // Map to track unique values and their FIRST index
+    // Key format: "real_imag" to sufficient precision
+    const seenValues = new Map();
 
-      const reDiff = Math.abs(current.re - next.re);
-      const imDiff = Math.abs(current.im - next.im);
+    // Add the first one
+    const firstKey = `${convergents[0].re.toFixed(15)}_${convergents[0].im.toFixed(15)}`;
+    seenValues.set(firstKey, 0);
 
-      // Check if any one of real or imaginary parts are within EPSILON
-      if (reDiff <= Number.EPSILON || imDiff <= Number.EPSILON) {
-        return i + 1; // Return index of the first redundant convergent
-      }
+    for (let i = 1; i < convergents.length; i++) {
+        const current = convergents[i];
+    
+        // 1. Check for cycles/repeats
+        // We use slightly less precision for the key to handle tiny float noise if needed, 
+        // but 15 digits is standard safest for "equality" context here.
+        const key = `${current.re.toFixed(15)}_${current.im.toFixed(15)}`;
+        
+        if (seenValues.has(key)) {
+            // Found a cycle/repeat! 
+            // The logic: If we bounce back to a state we've seen before, everything since then 
+            // is part of a loop or oscillation. We effectively "rollback" to that first occurrence.
+            const firstIndex = seenValues.get(key);
+            
+            // The first occurrence (firstIndex) is the LAST VALID one.
+            // So the first REDUNDANT index is firstIndex + 1.
+            return firstIndex + 1;
+        }
+        seenValues.set(key, i);
+
+        // 2. Original Check: consecutive epsiolon difference
+        // Only if there is a next element
+        if (i < convergents.length - 1) {
+            const next = convergents[i + 1];
+            const reDiff = Math.abs(current.re - next.re);
+            const imDiff = Math.abs(current.im - next.im);
+
+            // Check if any one of real or imaginary parts are within EPSILON
+            if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
+                return i + 1; // Return index of the first redundant convergent
+            }
+        }
     }
 
     return -1; // No redundant convergents found
@@ -275,7 +310,7 @@ export class ComplexVisualizerUI {
     const angleWithoutPi = decimal / piValue;
 
     // Convert to rational
-    const rational = this._toRational(angleWithoutPi);
+    const rational = toRational(angleWithoutPi);
 
     // Update rational inputs
     this.numeratorInput.value = rational.n;
@@ -771,6 +806,34 @@ export class ComplexVisualizerUI {
   drawScene() {
     this.drawComplexPlane();
     this.drawConvergents();
+    this.drawJSComparison();
+  }
+
+  drawJSComparison() {
+    if (this.lastGeneratedAngle === null) return;
+
+    const jsRe = Math.cos(this.lastGeneratedAngle);
+    const jsIm = Math.sin(this.lastGeneratedAngle);
+    const point = this.mapToCanvas(jsRe, jsIm);
+
+    // Draw point
+    this.ctx.fillStyle = '#9b59b6'; // Purple color for JS Math value
+    this.ctx.beginPath();
+    
+    // Draw a square for differentiation
+    const size = 6;
+    this.ctx.fillRect(point.x - size, point.y - size, size * 2, size * 2);
+    
+    // Draw white border
+    this.ctx.strokeStyle = 'white';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(point.x - size, point.y - size, size * 2, size * 2);
+
+    // Draw label
+    this.ctx.fillStyle = '#8e44ad'; // Darker purple for text
+    this.ctx.font = 'bold 11px Open Sans';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('JS', point.x, point.y - 15);
   }
 
   updateCoefficientsList(coefficients, redundantStartIndex) {
@@ -811,8 +874,8 @@ export class ComplexVisualizerUI {
       }
 
       // Display convergent with precision
-      const realStr = conv.re.toFixed(17).replace(/\.?0+$/, '');
-      const imagStr = Math.abs(conv.im).toFixed(17).replace(/\.?0+$/, '');
+      const realStr = formatDisplayNumber(conv.re);
+      const imagStr = formatDisplayNumber(Math.abs(conv.im));
       const sign = conv.im >= 0 ? '+' : '-';
       convElement.textContent = `C${index}: ${realStr} ${sign} ${imagStr}i`;
       this.convergentsList.appendChild(convElement);
@@ -844,7 +907,7 @@ export class ComplexVisualizerUI {
 
     try {
       // Generate coefficients with fixed count
-      const { d: denominator } = this._toRational(angle);
+      const { d: denominator } = toRational(angle);
       const coefficients = generateCoefficients(denominator, this.COEFFICIENT_COUNT);
 
       // Calculate convergents
@@ -903,7 +966,7 @@ export class ComplexVisualizerUI {
 
   generateRandomAngle() {
     // Generate a random angle between 0.1 and 3.0 radians
-    const randomAngle = (Math.random() * 2.9 + 0.1).toFixed(2);
+    const randomAngle = (Math.random() * 2 * Math.PI).toFixed(6);
     this.angleInput.value = randomAngle;
 
     // Update rational input from decimal
@@ -1031,54 +1094,10 @@ export class ComplexVisualizerUI {
       diffTan = Math.abs(jsTan - convTan);
     }
 
-    // Formatting function for full double precision (17 digits)
-    const formatFullPrecision = (value) => {
-      if (Math.abs(value) === Infinity) {
-        return value > 0 ? '∞' : '-∞';
-      }
-
-      if (isNaN(value)) {
-        return 'NaN';
-      }
-
-      if (value === 0) {
-        return '0';
-      }
-
-      const absValue = Math.abs(value);
-
-      // Use toPrecision(17) for maximum double precision
-      if (absValue >= 1e15 || absValue <= 1e-15) {
-        // For extremely large or small numbers, use scientific notation
-        return value.toExponential(16); // 16 digits after decimal in scientific notation
-      }
-
-      // For regular numbers, use toFixed(17)
-      return value.toFixed(17);
-    };
-
-    // Clean trailing zeros
-    const cleanTrailingZeros = (str) => {
-      return str.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-    };
-
     // Helper function to set value and tooltip
     const setValueWithTooltip = (element, value, isDiff = false) => {
-      let formatted = formatFullPrecision(value);
-
-      // For differences, use scientific notation for very small values
-      if (isDiff) {
-        const absValue = Math.abs(value);
-        if (absValue < 1e-15) {
-          formatted = value.toExponential(16);
-        } else if (absValue < 1e-10) {
-          formatted = value.toExponential(10);
-        } else if (absValue < 0.0001) {
-          formatted = value.toExponential(6);
-        }
-      }
-
-      // Clean trailing zeros for fixed-point notation
+      let formatted = isDiff ? formatDifference(value) : formatFullPrecision(value);
+      
       if (!formatted.includes('e') && !formatted.includes('∞')) {
         formatted = cleanTrailingZeros(formatted);
       }
@@ -1102,13 +1121,6 @@ export class ComplexVisualizerUI {
     setValueWithTooltip(this.jsTanElement, jsTan);
     setValueWithTooltip(this.diffTanElement, diffTan, true);
 
-    // Add highlight animation
-    const highlightElement = (element) => {
-      element.classList.remove('updated');
-      void element.offsetWidth; // Trigger reflow
-      element.classList.add('updated');
-    };
-
     highlightElement(this.convergentCosElement);
     highlightElement(this.jsCosElement);
     highlightElement(this.diffCosElement);
@@ -1118,12 +1130,6 @@ export class ComplexVisualizerUI {
     highlightElement(this.convergentTanElement);
     highlightElement(this.jsTanElement);
     highlightElement(this.diffTanElement);
-
-    // Animate indicator bar
-    this.convergenceBarElement.classList.add('animating');
-    setTimeout(() => {
-      this.convergenceBarElement.classList.remove('animating');
-    }, 2000);
 
     // Update convergence indicator
     this.updateConvergenceIndicator(diffCos, diffSin, diffTan);
@@ -1187,23 +1193,6 @@ export class ComplexVisualizerUI {
     this.convergenceStatusElement.textContent = statusText;
     this.convergenceStatusElement.style.color = statusColor;
 
-    // Add highlight animation
-    const highlightElement = (element) => {
-        element.classList.remove('updated');
-        void element.offsetWidth; // Trigger reflow
-        element.classList.add('updated');
-    };
-    
-    highlightElement(this.convergentCosElement);
-    highlightElement(this.jsCosElement);
-    highlightElement(this.diffCosElement);
-    highlightElement(this.convergentSinElement);
-    highlightElement(this.jsSinElement);
-    highlightElement(this.diffSinElement);
-    highlightElement(this.convergentTanElement);
-    highlightElement(this.jsTanElement);
-    highlightElement(this.diffTanElement);
-    
     // Animate indicator bar
     this.convergenceBarElement.classList.add('animating');
     setTimeout(() => {
@@ -1212,29 +1201,5 @@ export class ComplexVisualizerUI {
 
     // Add tooltip with exact error
     this.convergenceStatusElement.title = `Average error: ${avgError.toExponential(6)}`;
-  }
-
-  // Helper function to convert decimal to rational (simplified version)
-  _toRational(x) {
-    // Handle special cases
-    if (!isFinite(x)) return { n: NaN, d: NaN };
-    if (x === 0) return { n: 0, d: 1 };
-
-    const sign = Math.sign(x);
-    x = Math.abs(x);
-
-    let m = Math.floor(x);
-    if (x === m) return { n: sign * m, d: 1 };
-
-    let x_ = 1 / (x - m);
-    let p_ = 1, q_ = 0, p = m, q = 1;
-
-    while (Math.abs(x - p / q) > Number.EPSILON) {
-      m = Math.floor(x_);
-      x_ = 1 / (x_ - m);
-      [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
-    }
-
-    return { n: sign * p, d: q };
   }
 }

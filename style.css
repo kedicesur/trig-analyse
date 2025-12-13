@@ -698,6 +698,206 @@ canvas {
     font-family: 'Roboto Mono', monospace;
 }
 
+.discovery-note {
+    background-color: rgba(52, 152, 219, 0.08);
+    border-left: 4px solid #3498db;
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: 8px;
+}
+
+.discovery-note > p:first-child {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    border-bottom: 2px solid rgba(52, 152, 219, 0.2);
+    padding-bottom: 10px;
+}
+
+.discovery-note strong {
+    color: #2c3e50;
+}
+
+.discovery-note ul {
+    padding-left: 20px;
+    margin: 10px 0;
+}
+
+.discovery-note li {
+    margin-bottom: 5px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+}
+
+.discovery-note sup {
+    font-size: 0.85em;
+}
+
+/* Insights Grid */
+.insights-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.insight-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+    border: 1px solid #eaeaea;
+    display: flex;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insight-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.insight-icon {
+    background-color: #3498db;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.insight-content {
+    flex: 1;
+}
+
+.insight-content h4 {
+    color: #2c3e50;
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.insight-content ul {
+    padding-left: 18px;
+    margin: 8px 0 0 0;
+}
+
+.insight-content li {
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    color: #34495e;
+}
+
+.insight-content li:last-child {
+    margin-bottom: 0;
+}
+
+/* Color code each insight card */
+.insights-grid > div:nth-child(1) .insight-icon {
+    background-color: #e74c3c; /* Red for pattern insight */
+}
+
+.insights-grid > div:nth-child(2) .insight-icon {
+    background-color: #2ecc71; /* Green for convergence insight */
+}
+
+.insights-grid > div:nth-child(3) .insight-icon {
+    background-color: #9b59b6; /* Purple for exponentiation insight */
+}
+
+.insights-grid > div:nth-child(4) .insight-icon {
+    background-color: #f39c12; /* Orange for simultaneous insight */
+}
+
+/* Efficiency Summary */
+.efficiency-summary {
+    background-color: rgba(46, 204, 113, 0.08);
+    border: 1px solid rgba(46, 204, 113, 0.2);
+    border-radius: 8px;
+    padding: 18px;
+    margin-top: 20px;
+}
+
+.efficiency-summary h4 {
+    color: #27ae60;
+    margin: 0 0 15px 0;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.efficiency-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.metric {
+    background-color: white;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.metric-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #27ae60;
+    margin-bottom: 5px;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.metric-label {
+    font-size: 11px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+}
+
+/* Proper mathematical notation styling */
+sup {
+    font-size: 0.8em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+sub {
+    font-size: 0.8em;
+    vertical-align: sub;
+    line-height: 0;
+}
+
+/* Ensure mathematical expressions look good in headers */
+h1 sup, h2 sup, h3 sup,
+h1 sub, h2 sub, h3 sub {
+    font-size: 0.7em;
+}
+
+.subtitle sup {
+    font-size: 0.75em;
+}
+
+/* Add special styling for complex exponential notation */
+.complex-exp {
+    font-family: 'Times New Roman', serif;
+    font-style: italic;
+}
+
+.complex-exp sup {
+    font-family: 'Roboto', sans-serif;
+    font-style: normal;
+}
+
 footer {
     text-align: center;
     margin-top: 30px;
@@ -836,7 +1036,7 @@ footer {
     .value-group {
         min-height: 36px;
     }
-    
+
     .value {
         font-size: 8px;
         min-height: 24px;
