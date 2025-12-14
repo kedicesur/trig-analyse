@@ -23,41 +23,46 @@
     <div class="content">
       <div class="input-section">
         <h2>Generate Coefficients</h2>
-        <p>Enter an angle and coefficient count to generate coefficients for e<sup>iθ</sup></p>
 
-        <div class="input-group">
-          <label for="angleInput">Angle (decimal radians):</label>
-          <input type="number" id="angleInput" value="1.0" step="0.1" min="-10" max="10">
-        </div>
 
-        <div class="input-group">
-          <label>Angle (as rational × π):</label>
-          <div class="rational-pi-container">
-            <div class="fraction-container">
-              <div class="fraction">
-                <input type="number" id="numeratorInput" class="fraction-input" placeholder="Numerator" value="1">
-                <div class="vinculum"></div>
-                <input type="number" id="denominatorInput" class="fraction-input" placeholder="Denominator" value="1">
-              </div>
-              <div class="times-pi">·</div>
+        <div class="input-container-row">
+          <div class="input-header">Calculate for e<sup>iθ</sup> where θ =</div>
+          
+          <div class="input-wrapper">
+            <div class="decimal-group">
+              <label for="angleInput" class="inline-label">Angle:</label>
+              <input type="number" id="angleInput" value="1.0" step="0.1" min="-10" max="10">
             </div>
-            <div class="pi-approximation-container">
-              <label for="piDropdown" class="pi-dropdown-label">Select π Approximation</label>
-              <select id="piDropdown" class="pi-dropdown">
-                <option value="1">1 (exact)</option>
-                <option value="22/7">22/7</option>
-                <option value="333/106">333/106</option>
-                <option value="355/113">355/113</option>
-                <option value="103993/33102">103993/33102</option>
-                <option value="104348/33215">104348/33215</option>
-                <option value="208341/66317">208341/66317</option>
-                <option value="312689/99532">312689/99532</option>
-                <option value="833719/265381">833719/265381</option>
-                <option value="1146408/364913">1146408/364913</option>
-                <option value="4272943/1360120">4272943/1360120</option>
-                <option value="5419351/1725033">5419351/1725033</option>
-                <option value="80143857/25510582">80143857/25510582</option>
-              </select>
+
+            <div class="equals-sign">=</div>
+
+            <div class="rational-pi-group">
+              <div class="fraction-container">
+                <div class="fraction">
+                  <input type="number" id="numeratorInput" class="fraction-input" placeholder="n" value="1">
+                  <div class="vinculum"></div>
+                  <input type="number" id="denominatorInput" class="fraction-input" placeholder="d" value="1">
+                </div>
+                <div class="times-dot">·</div>
+              </div>
+              
+              <div class="pi-select-container">
+                <select id="piDropdown" class="pi-dropdown">
+                  <option value="1">1 (radians)</option>
+                  <option value="22/7">π ≈ 22/7</option>
+                  <option value="333/106">π ≈ 333/106</option>
+                  <option value="355/113">π ≈ 355/113</option>
+                  <option value="103993/33102">π ≈ 103993/33102</option>
+                  <option value="104348/33215">π ≈ 104348/33215</option>
+                  <option value="208341/66317">π ≈ 208341/66317</option>
+                  <option value="312689/99532">π ≈ 312689/99532</option>
+                  <option value="833719/265381">π ≈ 833719/265381</option>
+                  <option value="1146408/364913">π ≈ 1146408/364913</option>
+                  <option value="4272943/1360120">π ≈ 4272943/1360120</option>
+                  <option value="5419351/1725033">π ≈ 5419351/1725033</option>
+                  <option value="80143857/25510582">π ≈ 80143857/25510582</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

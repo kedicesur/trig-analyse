@@ -77,12 +77,18 @@ export class ComplexVisualizerUI {
     this.convergenceBarElement = document.getElementById('convergenceBar');
     this.convergenceStatusElement = document.getElementById('convergenceStatus');
 
-    // Store last generated angle for comparison
-    this.lastGeneratedAngle = null;
+  // Store last generated angle for comparison
+  this.lastGeneratedAngle = null;
+  
+  // Store the "True" reference angle (using Math.PI) for comparison
+  this.trueReferenceAngle = null;
 
-    // Initialize
-    this.init();
-  }
+  // Cache for the exact minimal rational fraction to avoid redundant recalculation
+  this.cachedExactRational = null;
+
+  // Initialize
+  this.init();
+}
 
   init() {
     // Set up event listeners
@@ -139,12 +145,12 @@ export class ComplexVisualizerUI {
       }
     });
 
-    // Pi dropdown changes -> update both
+    // Pi dropdown changes -> update decimal from rational
     this.piDropdown.addEventListener('change', () => {
-      // When π changes, we need to update rational from decimal
+      // When π changes, we need to update decimal from rational (keeping n/d constant)
       if (!this.isUpdatingFromDecimal) {
         this.isUpdatingFromRational = true;
-        this.updateRationalFromDecimal();
+        this.updateDecimalFromRational();
         this.isUpdatingFromRational = false;
       }
     });
@@ -315,6 +321,10 @@ export class ComplexVisualizerUI {
     // Update rational inputs
     this.numeratorInput.value = rational.n;
     this.denominatorInput.value = rational.d;
+    
+    // Cache the exact rational form of the FULL decimal angle
+    // Since we started with a decimal, we convert THAT to rational
+    this.cachedExactRational = toRational(decimal);
   }
 
   // Update decimal input from rational
@@ -327,13 +337,36 @@ export class ComplexVisualizerUI {
     }
 
     const piStr = this.piDropdown.value;
-    const piValue = this.parsePiValue(piStr);
+    
+    let piNum = 1;
+    let piDen = 1;
 
-    // Calculate decimal: (numerator/denominator) * π
-    const decimal = (numerator / denominator) * piValue;
+    if (piStr === '1') {
+        piNum = 1;
+        piDen = 1;
+    } else if (piStr.includes('/')) {
+        const parts = piStr.split('/');
+        piNum = parseFloat(parts[0]);
+        piDen = parseFloat(parts[1]);
+    } else {
+        piNum = parseFloat(piStr);
+        piDen = 1;
+    }
+
+    // Calculate decimal: (numerator * piNum) / (denominator * piDen)
+    // This order of operations (multiply then divide) is critical to avoid
+    // intermediate floating point rounding errors that confuse toRational().
+    const combinedNumerator = numerator * piNum;
+    const combinedDenominator = denominator * piDen;
+    const decimal = combinedNumerator / combinedDenominator;
 
     // Update decimal input
     this.angleInput.value = decimal;
+    
+    // Cache the exact minimal rational fraction directly from the clean float
+    // This enables the solver to use the precise fraction (e.g. 111/53) instead 
+    // of a noisy one derived from the decimal later.
+    this.cachedExactRational = toRational(decimal);
   }
 
   createTooltip() {
@@ -718,7 +751,7 @@ export class ComplexVisualizerUI {
     this.ctx.fillStyle = '#e74c3c';
     this.ctx.font = 'bold 14px Open Sans';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Unit Circle', center.x + radius + 30, center.y);
+    this.ctx.fillText('Unit Circle', center.x + radius/Math.sqrt(2)+30, center.y + radius/Math.sqrt(2)+30);
   }
 
   drawConvergents() {
@@ -810,10 +843,10 @@ export class ComplexVisualizerUI {
   }
 
   drawJSComparison() {
-    if (this.lastGeneratedAngle === null) return;
+    if (this.trueReferenceAngle === null) return;
 
-    const jsRe = Math.cos(this.lastGeneratedAngle);
-    const jsIm = Math.sin(this.lastGeneratedAngle);
+    const jsRe = Math.cos(this.trueReferenceAngle);
+    const jsIm = Math.sin(this.trueReferenceAngle);
     const point = this.mapToCanvas(jsRe, jsIm);
 
     // Draw point
@@ -890,9 +923,6 @@ export class ComplexVisualizerUI {
       return;
     }
     
-    // Store the angle for trigonometric comparison
-    this.lastGeneratedAngle = angle;
-
     // Stop any existing animation
     if (this.animationInterval) {
       clearInterval(this.animationInterval);
@@ -906,12 +936,53 @@ export class ComplexVisualizerUI {
     this.currentStep = 0;
 
     try {
-      // Generate coefficients with fixed count
-      const { d: denominator } = toRational(angle);
-      const coefficients = generateCoefficients(denominator, this.COEFFICIENT_COUNT);
+    // -------------------------------------------------------------------------
+    // OPTIMIZED LOGIC: USE CACHED RATIONAL
+    // -------------------------------------------------------------------------
+    // We use the cached minimal rational fraction which is updated whenever inputs change.
+    // This ensures consistency and avoids redundant calculation/precision errors.
 
-      // Calculate convergents
-      const allConvergents = expWithConvergents(angle, this.COEFFICIENT_COUNT);
+    // Safety check: if cache is missing (shouldn't happen with correct events), calculate it
+    let minimalRational = this.cachedExactRational;
+    if (!minimalRational) {
+        minimalRational = toRational(angle);
+        this.cachedExactRational = minimalRational;
+    }
+
+    // Pass to Solver
+    // We update this.lastGeneratedAngle to match what we assume we are solving for
+    // We use (n/d) as the true angle if available from the cache
+    let angleForCalculation = angle;
+    if (minimalRational && minimalRational.d !== 0) {
+        angleForCalculation = minimalRational.n / minimalRational.d;
+    }
+    this.lastGeneratedAngle = angleForCalculation;
+    
+    // -------------------------------------------------------------------------
+    // CALCULATE TRUE REFERENCE ANGLE (Math.PI)
+    // -------------------------------------------------------------------------
+    // Use the direct input values from the UI for the most accurate reference
+    const inputN = parseFloat(this.numeratorInput.value);
+    const inputD = parseFloat(this.denominatorInput.value);
+    const piStr = this.piDropdown.value;
+
+    if (!isNaN(inputN) && !isNaN(inputD) && inputD !== 0) {
+        if (piStr === '1') {
+             this.trueReferenceAngle = inputN / inputD;
+        } else {
+             this.trueReferenceAngle = (inputN / inputD) * Math.PI;
+        }
+    } else {
+        // Fallback if inputs are invalid (shouldn't happen in normal flow)
+        this.trueReferenceAngle = angleForCalculation;
+    }
+
+    // Generate coefficients with fixed count
+    // Use the minimal denominator found
+    const coefficients = generateCoefficients(minimalRational.d, this.COEFFICIENT_COUNT);
+
+    // Calculate convergents (PASSING THE EXACT RATIONAL)
+    const allConvergents = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
       const redundantStartIndex = this.findConvergenceIndex(allConvergents);
@@ -1051,19 +1122,22 @@ export class ComplexVisualizerUI {
  */
 
   updateTrigComparison(convergent, angle) {
-    // Store the angle for potential reuse
-    this.lastGeneratedAngle = angle;
-
-    // Get JavaScript's trigonometric values
-    const jsCos = Math.cos(angle);
-    const jsSin = Math.sin(angle);
+    // Store the angle for potential reuse (legacy support vs new logic)
+    // Note: 'angle' passed here is usually the index-based angle or similar
+    // BUT we want to compare against the TRUE Reference Angle (Math.PI based)
+    
+    // Get JavaScript's trigonometric values using TRUE REFERENCE
+    const refAngle = this.trueReferenceAngle !== null ? this.trueReferenceAngle : angle;
+    
+    const jsCos = Math.cos(refAngle);
+    const jsSin = Math.sin(refAngle);
     let jsTan;
 
     // Handle tangent (avoid division by zero)
     if (Math.abs(jsCos) < 1e-15) {
       jsTan = jsSin > 0 ? Infinity : -Infinity;
     } else {
-      jsTan = Math.tan(angle);
+      jsTan = Math.tan(refAngle);
     }
 
     // Our convergent values (cos = real part, sin = imaginary part)

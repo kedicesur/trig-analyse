@@ -109,21 +109,21 @@ function _getBaseUnit(n, terms) {
 function _powUnitComplex(base, exponent) {
   // Normalize base once before exponentiation loops to prevent overflow
   // This handles cases where the base convergent magnitude > 1 (e.g. 1+1i for q=1)
-  let currentBase = base.normalize();
+  // let currentBase = base.normalize();
   
   let result = Complex.ONE;
   let power = Math.abs(exponent);
 
   while (power > 0) {
     if (power % 2 === 1) {
-      result = result.multiply(currentBase);
+      result = result.multiply(base);
       //dont use excess normalization here
       //result = result.normalize();
     }
-    currentBase = currentBase.multiply(currentBase);
-    //dont use excess normalization here
-    //currentBase = currentBase.normalize();
-    power >>= 1;
+      base = base.multiply(base);
+      //dont use excess normalization here
+      //currentBase = currentBase.normalize();
+      power >>= 1;
   }
 
   return exponent < 0 ? result.normalize().conjugate() : result.normalize();
@@ -134,9 +134,10 @@ function _powUnitComplex(base, exponent) {
  * Returns all convergents (approximations) at each step
  * @param {number} angle - Angle in radians
  * @param {number} terms - Number of terms to use
+ * @param {Object} [exactRational] - Optional {n, d} object to bypass toRational
  * @returns {Complex[]} Array of convergents
  */
-export function expWithConvergents(angle, terms = 12) {
+export function expWithConvergents(angle, terms = 12, exactRational = null) {
   if (typeof angle !== 'number' || isNaN(angle)) {
     throw new TypeError('Angle must be a valid number.');
   }
@@ -145,7 +146,18 @@ export function expWithConvergents(angle, terms = 12) {
     return [Complex.ONE];
   }
 
-  const { n: numerator, d: denominator } = toRational(angle);
+  let numerator, denominator;
+
+  // Use exact rational if provided and valid
+  if (exactRational && typeof exactRational.n === 'number' && typeof exactRational.d === 'number') {
+    numerator = exactRational.n;
+    denominator = exactRational.d;
+  } else {
+    // Otherwise fall back to converting the float
+    const rational = toRational(angle);
+    numerator = rational.n;
+    denominator = rational.d;
+  }
   
   // Generate coefficients for the denominator
   const coefficients = generateCoefficients(denominator, terms);
