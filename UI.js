@@ -245,6 +245,11 @@ export class ComplexVisualizerUI {
   * @param {Complex[]} convergents - Array of convergents
   * @returns {number} Index of first redundant convergent, or -1 if none
   */
+  /**
+  * Find the index where convergents stop changing (within Number.EPSILON)
+  * @param {Complex[]} convergents - Array of convergents
+  * @returns {number} Index of first redundant convergent, or -1 if none
+  */
   findConvergenceIndex(convergents) {
     if (convergents.length < 2) return -1;
 
@@ -253,37 +258,45 @@ export class ComplexVisualizerUI {
     const seenValues = new Map();
 
     // Add the first one
-    const firstKey = `${convergents[0].re.toFixed(15)}_${convergents[0].im.toFixed(15)}`;
+    const firstKey = `${convergents[0].re.toFixed(16)}_${convergents[0].im.toFixed(16)}`;
     seenValues.set(firstKey, 0);
 
     for (let i = 1; i < convergents.length; i++) {
         const current = convergents[i];
     
         // 1. Check for cycles/repeats
-        // We use slightly less precision for the key to handle tiny float noise if needed, 
-        // but 15 digits is standard safest for "equality" context here.
-        const key = `${current.re.toFixed(15)}_${current.im.toFixed(15)}`;
+        const key = `${current.re.toFixed(16)}_${current.im.toFixed(16)}`;
         
         if (seenValues.has(key)) {
-            // Found a cycle/repeat! 
-            // The logic: If we bounce back to a state we've seen before, everything since then 
-            // is part of a loop or oscillation. We effectively "rollback" to that first occurrence.
+            // Found a potential cycle/repeat!
             const firstIndex = seenValues.get(key);
             
-            // The first occurrence (firstIndex) is the LAST VALID one.
-            // So the first REDUNDANT index is firstIndex + 1.
-            return firstIndex + 1;
+            // STRICT VERIFICATION:
+            // The string key is an approximation. We must check if the numbers 
+            // are actually within epsilon distance to confirm it's a true repeat.
+            const candidate = convergents[firstIndex];
+            const reDiff = Math.abs(candidate.re - current.re);
+            const imDiff = Math.abs(candidate.im - current.im);
+            
+            // Using a slightly more tolerant epsilon for cycle closure "close enough" 
+            // or strict epsilon? Let's stick effectively to equality.
+            if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
+                // Confirmed cycle/repeat.
+                // The first occurrence (firstIndex) is the LAST VALID one.
+                return firstIndex + 1;
+            }
+            // If hash collision but not epsilon equal, we proceed (ignore false positive).
         }
         seenValues.set(key, i);
 
-        // 2. Original Check: consecutive epsiolon difference
+        // 2. Original Check: consecutive epsilon difference
         // Only if there is a next element
         if (i < convergents.length - 1) {
             const next = convergents[i + 1];
             const reDiff = Math.abs(current.re - next.re);
             const imDiff = Math.abs(current.im - next.im);
 
-            // Check if any one of real or imaginary parts are within EPSILON
+            // Check if both real and imaginary parts are within EPSILON
             if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
                 return i + 1; // Return index of the first redundant convergent
             }
@@ -430,10 +443,10 @@ export class ComplexVisualizerUI {
     const index = this.hoveredConvergent.index;
 
     // Format content
-    const realStr = conv.re.toFixed(17).replace(/\.?0+$/, '');
-    const imagStr = Math.abs(conv.im).toFixed(17).replace(/\.?0+$/, '');
+    const realStr = conv.re.toFixed(16).replace(/\.?0+$/, '');
+    const imagStr = Math.abs(conv.im).toFixed(16).replace(/\.?0+$/, '');
     const sign = conv.im >= 0 ? '+' : '-';
-    const magnitudeStr = conv.magnitude().toFixed(17).replace(/\.?0+$/, '');
+    const magnitudeStr = conv.magnitude().toFixed(16).replace(/\.?0+$/, '');
 
     this.tooltip.innerHTML = `
       <h4>Convergent C${index}</h4>
@@ -827,7 +840,7 @@ export class ComplexVisualizerUI {
 
       // Calculate distance to unit circle with full precision
       const distance = Math.abs(currentConv.magnitude() - 1);
-      this.distanceToUnitCircleElement.textContent = distance.toFixed(17).replace(/\.?0+$/, '');
+      this.distanceToUnitCircleElement.textContent = distance.toFixed(16).replace(/\.?0+$/, '');
         
       // Update trigonometric comparison (use last generated angle)
       if (this.lastGeneratedAngle !== null) {
