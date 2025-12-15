@@ -4,7 +4,6 @@ import { generateCoefficients, expWithConvergents } from './Trig.js';
 import { toRational
        , formatFullPrecision
        , cleanTrailingZeros
-       , formatDisplayNumber
        , formatDifference
        , highlightElement
        } from "./Utils.js";
@@ -20,8 +19,6 @@ export class ComplexVisualizerUI {
     this.generateRandomButton = document.getElementById('generateCoefficients');
     this.complexCanvas = document.getElementById('complexCanvas');
     this.canvasContainer = document.getElementById('canvasContainer');
-    this.coefficientsList = document.getElementById('coefficientsList');
-    this.convergentsList = document.getElementById('convergentsList');
     this.resetViewButton = document.getElementById('resetView');
     this.zoomToLastButton = document.getElementById('zoomToLast');
     this.currentConvergentElement = document.getElementById('currentConvergent');
@@ -51,6 +48,10 @@ export class ComplexVisualizerUI {
     this.currentStep = 0;
     this.animationInterval = null;
     this.isAnimating = false;
+    
+    // Track input source for correct reference calculation
+    // 'decimal' or 'rational'
+    this.inputSource = 'decimal';
 
     // Tooltip state
     this.tooltip = null;
@@ -93,7 +94,10 @@ export class ComplexVisualizerUI {
   init() {
     // Set up event listeners
     this.plotButton.addEventListener('click', () => this.generateAndPlot());
-    this.generateRandomButton.addEventListener('click', () => this.generateRandomAngle());
+    this.generateRandomButton.addEventListener('click', () => {
+      this.inputSource = 'decimal';
+      this.generateRandomAngle();
+    });
     this.resetViewButton.addEventListener('click', () => this.resetView());
     this.zoomToLastButton.addEventListener('click', () => this.zoomToLastConvergent());
 
@@ -122,6 +126,7 @@ export class ComplexVisualizerUI {
     // Decimal input -> update rational
     this.angleInput.addEventListener('input', () => {
       if (!this.isUpdatingFromRational) {
+        this.inputSource = 'decimal';
         this.isUpdatingFromDecimal = true;
         this.updateRationalFromDecimal();
         this.isUpdatingFromDecimal = false;
@@ -131,6 +136,7 @@ export class ComplexVisualizerUI {
     // Rational inputs -> update decimal
     this.numeratorInput.addEventListener('input', () => {
       if (!this.isUpdatingFromDecimal) {
+        this.inputSource = 'rational';
         this.isUpdatingFromRational = true;
         this.updateDecimalFromRational();
         this.isUpdatingFromRational = false;
@@ -139,6 +145,7 @@ export class ComplexVisualizerUI {
 
     this.denominatorInput.addEventListener('input', () => {
       if (!this.isUpdatingFromDecimal) {
+        this.inputSource = 'rational';
         this.isUpdatingFromRational = true;
         this.updateDecimalFromRational();
         this.isUpdatingFromRational = false;
@@ -149,6 +156,7 @@ export class ComplexVisualizerUI {
     this.piDropdown.addEventListener('change', () => {
       // When π changes, we need to update decimal from rational (keeping n/d constant)
       if (!this.isUpdatingFromDecimal) {
+        this.inputSource = 'rational';
         this.isUpdatingFromRational = true;
         this.updateDecimalFromRational();
         this.isUpdatingFromRational = false;
@@ -245,11 +253,7 @@ export class ComplexVisualizerUI {
   * @param {Complex[]} convergents - Array of convergents
   * @returns {number} Index of first redundant convergent, or -1 if none
   */
-  /**
-  * Find the index where convergents stop changing (within Number.EPSILON)
-  * @param {Complex[]} convergents - Array of convergents
-  * @returns {number} Index of first redundant convergent, or -1 if none
-  */
+
   findConvergenceIndex(convergents) {
     if (convergents.length < 2) return -1;
 
@@ -258,14 +262,14 @@ export class ComplexVisualizerUI {
     const seenValues = new Map();
 
     // Add the first one
-    const firstKey = `${convergents[0].re.toFixed(16)}_${convergents[0].im.toFixed(16)}`;
-    seenValues.set(firstKey, 0);
+    const firstKey = `${convergents[0].re.toFixed(17)}_${convergents[0].im.toFixed(17)}`;
+    seenValues.set(firstKey, 0);  
 
     for (let i = 1; i < convergents.length; i++) {
         const current = convergents[i];
     
         // 1. Check for cycles/repeats
-        const key = `${current.re.toFixed(16)}_${current.im.toFixed(16)}`;
+        const key = `${current.re.toFixed(17)}_${current.im.toFixed(17)}`;
         
         if (seenValues.has(key)) {
             // Found a potential cycle/repeat!
@@ -283,24 +287,11 @@ export class ComplexVisualizerUI {
             if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
                 // Confirmed cycle/repeat.
                 // The first occurrence (firstIndex) is the LAST VALID one.
-                return firstIndex + 1;
+                return i + 1 // firstIndex + 1;
             }
             // If hash collision but not epsilon equal, we proceed (ignore false positive).
         }
         seenValues.set(key, i);
-
-        // 2. Original Check: consecutive epsilon difference
-        // Only if there is a next element
-        if (i < convergents.length - 1) {
-            const next = convergents[i + 1];
-            const reDiff = Math.abs(current.re - next.re);
-            const imDiff = Math.abs(current.im - next.im);
-
-            // Check if both real and imaginary parts are within EPSILON
-            if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
-                return i + 1; // Return index of the first redundant convergent
-            }
-        }
     }
 
     return -1; // No redundant convergents found
@@ -882,50 +873,76 @@ export class ComplexVisualizerUI {
     this.ctx.fillText('JS', point.x, point.y - 15);
   }
 
-  updateCoefficientsList(coefficients, redundantStartIndex) {
-    this.coefficientsList.innerHTML = '';
+  updateResultsGrid(coefficients, baseConvergents, finalConvergents, redundantStartIndex) {
+    const gridContainer = document.querySelector('.coefficients-convergents-grid');
+    
+    // Clear existing content but keep structure if possible, or rebuild
+    // Since we are changing the structure to 4 columns, let's rebuild the internal lists
+    // We assume the HTML has been updated to have 4 columns with IDs:
+    // indicesList, coefficientsList, baseConvergentsList, finalConvergentsList
+    
+    const indicesList = document.getElementById('indicesList');
+    const coefficientsList = document.getElementById('coefficientsList');
+    const baseConvergentsList = document.getElementById('baseConvergentsList');
+    const finalConvergentsList = document.getElementById('finalConvergentsList');
+    
+    // Safety check if elements exist (in case HTML isn't updated yet or mismatched)
+    if (!indicesList || !coefficientsList || !baseConvergentsList || !finalConvergentsList) return;
 
-    coefficients.forEach((coeff, index) => {
-      const coeffElement = document.createElement('div');
-      coeffElement.className = 'point-item';
+    indicesList.innerHTML = '';
+    coefficientsList.innerHTML = '';
+    baseConvergentsList.innerHTML = '';
+    finalConvergentsList.innerHTML = '';
 
-      // Determine if this coefficient is redundant
-      if (redundantStartIndex >= 0 && index >= redundantStartIndex) {
-        coeffElement.classList.add('redundant');
-      } else {
-        coeffElement.classList.add('valid');
-      }
+    // Determine max length (usually they match, but be safe)
+    const count = Math.max(coefficients.length, baseConvergents.length, finalConvergents.length);
 
-      // Display coefficient as integers
-      const realInt = Math.round(coeff.re);
-      const imagInt = Math.round(coeff.im);
-      const sign = imagInt >= 0 ? '+' : '';
-      coeffElement.textContent = `a${index}: ${realInt} ${sign} ${imagInt}i`;
-      this.coefficientsList.appendChild(coeffElement);
-    });
-  }
+    for (let i = 0; i < count; i++) {
+        const isRedundant = redundantStartIndex >= 0 && i >= redundantStartIndex;
+        const className = `point-item ${isRedundant ? 'redundant' : 'valid'}`;
 
-  updateConvergentsList(convergents, redundantStartIndex) {
-    this.convergentsList.innerHTML = '';
+        // 1. Index
+        const indexEl = document.createElement('div');
+        indexEl.className = className;
+        indexEl.textContent = i;
+        indicesList.appendChild(indexEl);
 
-    convergents.forEach((conv, index) => {
-      const convElement = document.createElement('div');
-      convElement.className = 'point-item';
+        // 2. Coefficient
+        const coeffEl = document.createElement('div');
+        coeffEl.className = className;
+        if (i < coefficients.length) {
+            const c = coefficients[i];
+            const realInt = Math.round(c.re);
+            const imagInt = Math.round(c.im);
+            const sign = imagInt >= 0 ? '+' : '';
+            coeffEl.textContent = `${realInt} ${sign} ${imagInt}i`;
+        }
+        coefficientsList.appendChild(coeffEl);
 
-      // Determine if this convergent is redundant
-      if (redundantStartIndex >= 0 && index >= redundantStartIndex) {
-        convElement.classList.add('redundant');
-      } else {
-        convElement.classList.add('valid');
-      }
+        // 3. Base Convergent
+        const baseEl = document.createElement('div');
+        baseEl.className = className;
+        if (i < baseConvergents.length) {
+            const b = baseConvergents[i];
+            const realStr = b.re.toFixed(17);
+            const imagStr = Math.abs(b.im).toFixed(17);
+            const sign = b.im >= 0 ? '+' : '-';
+            baseEl.textContent = `${realStr} ${sign} ${imagStr}i`;
+        }
+        baseConvergentsList.appendChild(baseEl);
 
-      // Display convergent with precision
-      const realStr = formatDisplayNumber(conv.re);
-      const imagStr = formatDisplayNumber(Math.abs(conv.im));
-      const sign = conv.im >= 0 ? '+' : '-';
-      convElement.textContent = `C${index}: ${realStr} ${sign} ${imagStr}i`;
-      this.convergentsList.appendChild(convElement);
-    });
+        // 4. Final Convergent
+        const finalEl = document.createElement('div');
+        finalEl.className = className;
+        if (i < finalConvergents.length) {
+            const f = finalConvergents[i];
+            const realStr = f.re.toFixed(17);
+            const imagStr = Math.abs(f.im).toFixed(17);
+            const sign = f.im >= 0 ? '+' : '-';
+            finalEl.textContent = `${realStr} ${sign} ${imagStr}i`;
+        }
+        finalConvergentsList.appendChild(finalEl);
+    }
   }
 
   generateAndPlot() {
@@ -979,7 +996,11 @@ export class ComplexVisualizerUI {
     const inputD = parseFloat(this.denominatorInput.value);
     const piStr = this.piDropdown.value;
 
-    if (!isNaN(inputN) && !isNaN(inputD) && inputD !== 0) {
+    if (this.inputSource === 'decimal') {
+        // If the user entered a decimal, THAT is the source of truth
+        this.trueReferenceAngle = angle;
+    } else if (!isNaN(inputN) && !isNaN(inputD) && inputD !== 0) {
+        // If the user entered a rational, use it
         if (piStr === '1') {
              this.trueReferenceAngle = inputN / inputD;
         } else {
@@ -995,10 +1016,12 @@ export class ComplexVisualizerUI {
     const coefficients = generateCoefficients(minimalRational.d, this.COEFFICIENT_COUNT);
 
     // Calculate convergents (PASSING THE EXACT RATIONAL)
-    const allConvergents = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
+    // Now returns { baseConvergents, finalConvergents }
+    const { baseConvergents, finalConvergents: allConvergents } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
-      const redundantStartIndex = this.findConvergenceIndex(allConvergents);
+      // KEY CHANGE: Check redundancy on BASE convergents to avoid floating point error accumulation
+      const redundantStartIndex = this.findConvergenceIndex(baseConvergents);
 
       // Store only valid convergents (for canvas display)
       if (redundantStartIndex >= 0) {
@@ -1007,9 +1030,8 @@ export class ComplexVisualizerUI {
         this.currentConvergents = allConvergents;
       }
 
-      // Update displays with redundancy information
-      this.updateCoefficientsList(coefficients, redundantStartIndex);
-      this.updateConvergentsList(allConvergents, redundantStartIndex);
+      // Update grid display with all columns
+      this.updateResultsGrid(coefficients, baseConvergents, allConvergents, redundantStartIndex);
 
       // Draw the scene
       this.drawScene();
@@ -1097,8 +1119,14 @@ export class ComplexVisualizerUI {
     const centerImag = (minImag + maxImag) / 2;
 
     // Calculate the dimensions of the bounding box
-    const width = maxReal - minReal;
-    const height = maxImag - minImag;
+    let width = maxReal - minReal;
+    let height = maxImag - minImag;
+
+    // Fix for identical/very close points causing division by zero (blank screen)
+    // Ensure we have a minimum box size
+    const minSize = 1e-15;
+    if (width < minSize) width = minSize;
+    if (height < minSize) height = minSize;
 
     // Add padding around the points (20% of the dimensions)
     const padding = 0.2;

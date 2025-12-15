@@ -92,20 +92,6 @@ export function computeAllConvergents(coefficients) {
   return convergents;
 }
 
-/**
- * Calculates e^(i/n) by finding its convergent.
- * @private
- */
-function _getBaseUnit(n, terms) {
-  if (n === 1) {
-    return new Complex(0.5403023058681397, 0.8414709848078965);
-  }
-
-  const coefficients = generateCoefficients(n, terms);
-  const convergents = computeAllConvergents(coefficients);
-  return convergents[convergents.length - 1];
-}
-
 function _powUnitComplex(base, exponent) {
   // Normalize base once before exponentiation loops to prevent overflow
   // This handles cases where the base convergent magnitude > 1 (e.g. 1+1i for q=1)
@@ -131,11 +117,11 @@ function _powUnitComplex(base, exponent) {
 
 /**
  * Main function to calculate e^(i*angle) using continued fractions
- * Returns all convergents (approximations) at each step
+ * Returns both base and final convergents
  * @param {number} angle - Angle in radians
  * @param {number} terms - Number of terms to use
  * @param {Object} [exactRational] - Optional {n, d} object to bypass toRational
- * @returns {Complex[]} Array of convergents
+ * @returns {Object} { baseConvergents: Complex[], finalConvergents: Complex[] }
  */
 export function expWithConvergents(angle, terms = 12, exactRational = null) {
   if (typeof angle !== 'number' || isNaN(angle)) {
@@ -143,7 +129,10 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
   }
 
   if (angle === 0) {
-    return [Complex.ONE];
+    return { 
+        baseConvergents: [Complex.ONE], 
+        finalConvergents: [Complex.ONE] 
+    };
   }
 
   let numerator, denominator;
@@ -168,7 +157,7 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
   // Raise each convergent to the numerator to get approximations for e^(i * numerator/denominator)
   const finalConvergents = baseConvergents.map(conv => _powUnitComplex(conv, numerator));
   
-  return finalConvergents;
+  return { baseConvergents, finalConvergents };
 }
 
 /**
@@ -178,8 +167,8 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
  * @returns {Complex} e^(i*angle)
  */
 export function exp(angle, terms = 12) {
-  const convergents = expWithConvergents(angle, terms);
-  return convergents[convergents.length - 1];
+  const { finalConvergents } = expWithConvergents(angle, terms);
+  return finalConvergents[finalConvergents.length - 1];
 }
 
 /**
