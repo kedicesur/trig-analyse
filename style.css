@@ -363,6 +363,7 @@ canvas {
     word-break: break-all;
     display: flex;
     align-items: center; /* Vertically center content */
+    justify-content: center; /* Horizontally center content */
 }
 /* Style for redundant coefficients/convergents */
 .point-item.redundant {

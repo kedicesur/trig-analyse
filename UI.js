@@ -78,17 +78,17 @@ export class ComplexVisualizerUI {
     this.convergenceBarElement = document.getElementById('convergenceBar');
     this.convergenceStatusElement = document.getElementById('convergenceStatus');
 
-  // Store last generated angle for comparison
-  this.lastGeneratedAngle = null;
-  
-  // Store the "True" reference angle (using Math.PI) for comparison
-  this.trueReferenceAngle = null;
+    // Store last generated angle for comparison
+    this.lastGeneratedAngle = null;
+    
+    // Store the "True" reference angle (using Math.PI) for comparison
+    this.trueReferenceAngle = null;
 
-  // Cache for the exact minimal rational fraction to avoid redundant recalculation
-  this.cachedExactRational = null;
+    // Cache for the exact minimal rational fraction to avoid redundant recalculation
+    this.cachedExactRational = null;
 
-  // Initialize
-  this.init();
+    // Initialize
+    this.init();
 }
 
   init() {
@@ -249,52 +249,41 @@ export class ComplexVisualizerUI {
   }
 
   /**
-  * Find the index where convergents stop changing (within Number.EPSILON)
-  * @param {Complex[]} convergents - Array of convergents
+  * Find the index where convergents stop changing by checking only significant
+  * (imaginary) coefficients with a sliding window approach.
+  * @param {Complex[]} coefficients - Array of coefficients
+  * @param {Complex[]} baseConvergents - Array of base convergents
+  * @param {Complex[]} finalConvergents - Array of final convergents
   * @returns {number} Index of first redundant convergent, or -1 if none
   */
-
-  findConvergenceIndex(convergents) {
-    if (convergents.length < 2) return -1;
-
-    // Map to track unique values and their FIRST index
-    // Key format: "real_imag" to sufficient precision
-    const seenValues = new Map();
-
-    // Add the first one
-    const firstKey = `${convergents[0].re.toFixed(17)}_${convergents[0].im.toFixed(17)}`;
-    seenValues.set(firstKey, 0);  
-
-    for (let i = 1; i < convergents.length; i++) {
-        const current = convergents[i];
+  findConvergenceIndex(coefficients, baseConvergents, finalConvergents) {
+    const EPSILON = 2e-15;
     
-        // 1. Check for cycles/repeats
-        const key = `${current.re.toFixed(17)}_${current.im.toFixed(17)}`;
-        
-        if (seenValues.has(key)) {
-            // Found a potential cycle/repeat!
-            const firstIndex = seenValues.get(key);
-            
-            // STRICT VERIFICATION:
-            // The string key is an approximation. We must check if the numbers 
-            // are actually within epsilon distance to confirm it's a true repeat.
-            const candidate = convergents[firstIndex];
-            const reDiff = Math.abs(candidate.re - current.re);
-            const imDiff = Math.abs(candidate.im - current.im);
-            
-            // Using a slightly more tolerant epsilon for cycle closure "close enough" 
-            // or strict epsilon? Let's stick effectively to equality.
-            if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
-                // Confirmed cycle/repeat.
-                // The first occurrence (firstIndex) is the LAST VALID one.
-                return i + 1 // firstIndex + 1;
-            }
-            // If hash collision but not epsilon equal, we proceed (ignore false positive).
-        }
-        seenValues.set(key, i);
+    let prevIdx = 0; // Start from baseline/identity
+    
+    for (let i = 1; i < coefficients.length; i++) {
+      // Skip purely real coefficients (insignificant for convergence)
+      if (Math.abs(coefficients[i].im) <= Number.EPSILON) {
+        continue;
+      }
+      
+      // Check stability: either Re OR Im must be within epsilon
+      const baseReDiff = Math.abs(baseConvergents[prevIdx].re - baseConvergents[i].re);
+      const baseImDiff = Math.abs(baseConvergents[prevIdx].im - baseConvergents[i].im);
+      const baseStable = (baseReDiff <= EPSILON && baseImDiff <= EPSILON);
+      
+      const finalReDiff = Math.abs(finalConvergents[prevIdx].re - finalConvergents[i].re);
+      const finalImDiff = Math.abs(finalConvergents[prevIdx].im - finalConvergents[i].im);
+      const finalStable = (finalReDiff <= EPSILON && finalImDiff <= EPSILON);
+      
+      if (baseStable && finalStable) {
+        return prevIdx + 1; // First redundant index
+      }
+      
+      prevIdx = i;
     }
-
-    return -1; // No redundant convergents found
+    
+    return -1; // No convergence detected
   }
 
   // Convert π string to numeric value
@@ -1020,8 +1009,8 @@ export class ComplexVisualizerUI {
     const { baseConvergents, finalConvergents: allConvergents } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
-      // KEY CHANGE: Check redundancy on BASE convergents to avoid floating point error accumulation
-      const redundantStartIndex = this.findConvergenceIndex(baseConvergents);
+      // NEW: Check both base AND final convergents, only at significant (imaginary) coefficient indices
+      const redundantStartIndex = this.findConvergenceIndex(coefficients, baseConvergents, allConvergents);
 
       // Store only valid convergents (for canvas display)
       if (redundantStartIndex >= 0) {
