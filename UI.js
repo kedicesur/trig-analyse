@@ -49,6 +49,10 @@ export class ComplexVisualizerUI {
     this.currentStep = 0;
     this.animationInterval = null;
     this.isAnimating = false;
+    // All convergents (including redundant) and redundancy metadata
+    this.allConvergents = [];
+    this.redundantStartIndex = -1;
+    this.REDUNDANT_DISPLAY_COUNT = 4; // how many redundant points to show
     
     // Track input source for correct reference calculation
     // 'decimal' or 'rational'
@@ -844,6 +848,46 @@ export class ComplexVisualizerUI {
           this.updateTrigComparison(currentConv, this.lastGeneratedAngle);
       }
     }
+
+    // Draw first few redundant convergents (faded, no connecting lines)
+    if (this.redundantStartIndex >= 0 && Array.isArray(this.allConvergents) && this.allConvergents.length > this.redundantStartIndex) {
+      const start = this.redundantStartIndex;
+      const end = Math.min(this.allConvergents.length, start + this.REDUNDANT_DISPLAY_COUNT);
+
+      // Use lower alpha for faded appearance
+      const prevAlpha = this.ctx.globalAlpha;
+      this.ctx.globalAlpha = 0.45;
+
+      for (let i = start; i < end; i++) {
+        const convergent = this.allConvergents[i];
+        const point = this.mapToCanvas(convergent.re, convergent.im);
+
+        // Determine base color for redundant points (faded pink)
+        const baseColor = '#f8d7da';
+
+        // Draw faded point (slightly smaller)
+        this.ctx.fillStyle = baseColor;
+        this.ctx.beginPath();
+        this.ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Draw light border (faded)
+        this.ctx.strokeStyle = 'white';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.stroke();
+
+        // Draw label (floating name) with faded color
+        this.ctx.globalAlpha = 1.0; // keep text readable
+        this.ctx.fillStyle = '#2c3e50';
+        this.ctx.font = '10px Open Sans';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`C${i}`, point.x, point.y - 10);
+        this.ctx.globalAlpha = 0.45;
+      }
+
+      // Restore alpha
+      this.ctx.globalAlpha = prevAlpha;
+    }
   }
 
   drawScene() {
@@ -880,7 +924,7 @@ export class ComplexVisualizerUI {
   }
 
   updateResultsGrid(coefficients, baseConvergents, finalConvergents, redundantStartIndex) {
-    const gridContainer = document.querySelector('.coefficients-convergents-grid');
+    // const gridContainer = document.querySelector('.coefficients-convergents-grid');
     
     // Clear existing content but keep structure if possible, or rebuild
     // Since we are changing the structure to 4 columns, let's rebuild the internal lists
@@ -1029,7 +1073,11 @@ export class ComplexVisualizerUI {
       // NEW: Check both base AND final convergents, only at significant (imaginary) coefficient indices
       const redundantStartIndex = this.findConvergenceIndex(coefficients, baseConvergents, allConvergents);
 
-      // Store only valid convergents (for canvas display)
+      // Store all convergents and redundancy info for drawing
+      this.allConvergents = allConvergents;
+      this.redundantStartIndex = redundantStartIndex;
+
+      // Store only valid convergents (for canvas display/animation)
       if (redundantStartIndex >= 0) {
         this.currentConvergents = allConvergents.slice(0, redundantStartIndex);
       } else {
