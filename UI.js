@@ -21,6 +21,7 @@ export class ComplexVisualizerUI {
     this.canvasContainer = document.getElementById('canvasContainer');
     this.resetViewButton = document.getElementById('resetView');
     this.zoomToLastButton = document.getElementById('zoomToLast');
+    this.zoomToReferenceButton = document.getElementById('zoomToReference');
     this.currentConvergentElement = document.getElementById('currentConvergent');
     this.totalConvergentsElement = document.getElementById('totalConvergents');
     this.distanceToUnitCircleElement = document.getElementById('distanceToUnitCircle');
@@ -100,6 +101,7 @@ export class ComplexVisualizerUI {
     });
     this.resetViewButton.addEventListener('click', () => this.resetView());
     this.zoomToLastButton.addEventListener('click', () => this.zoomToLastConvergent());
+    this.zoomToReferenceButton.addEventListener('click', () => this.zoomToReference());
 
     // Set up input synchronization event listeners
     this.setupInputEvents();
@@ -277,7 +279,22 @@ export class ComplexVisualizerUI {
       const finalStable = (finalReDiff <= EPSILON && finalImDiff <= EPSILON);
       
       if (baseStable && finalStable) {
-        return prevIdx + 1; // First redundant index
+        // Refinement: Check if the immediately previous convergent (from skipped 
+        // real-only coefficient) is already equal to prevIdx convergent
+        if (prevIdx > 0 && Math.abs(coefficients[prevIdx - 1].im) <= Number.EPSILON) {
+          // prevIdx - 1 has a real-only coefficient, check if its convergent equals prevIdx
+          const reDiff = Math.abs(finalConvergents[prevIdx - 1].re - finalConvergents[prevIdx].re);
+          const imDiff = Math.abs(finalConvergents[prevIdx - 1].im - finalConvergents[prevIdx].im);
+          
+          //if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
+          if (reDiff <= EPSILON/prevIdx && imDiff <= EPSILON/prevIdx) {
+            // The real-only coefficient didn't change the convergent
+            // Use prevIdx - 1 as the last valid convergent
+            return prevIdx; // prevIdx - 1 is last valid, so first redundant is prevIdx
+          }
+        }
+        
+        return prevIdx + 1; // Default: prevIdx is last valid, prevIdx + 1 is first redundant
       }
       
       prevIdx = i;
@@ -1102,6 +1119,67 @@ export class ComplexVisualizerUI {
     const maxReal = Math.max(lastConv.re, prevConv.re);
     const minImag = Math.min(lastConv.im, prevConv.im);
     const maxImag = Math.max(lastConv.im, prevConv.im);
+
+    // Calculate the center of the bounding box
+    const centerReal = (minReal + maxReal) / 2;
+    const centerImag = (minImag + maxImag) / 2;
+
+    // Calculate the dimensions of the bounding box
+    let width = maxReal - minReal;
+    let height = maxImag - minImag;
+
+    // Fix for identical/very close points causing division by zero (blank screen)
+    // Ensure we have a minimum box size
+    const minSize = 1e-15;
+    if (width < minSize) width = minSize;
+    if (height < minSize) height = minSize;
+
+    // Add padding around the points (20% of the dimensions)
+    const padding = 0.2;
+    const paddedWidth = width * (1 + 2 * padding);
+    const paddedHeight = height * (1 + 2 * padding);
+
+    // We want the padded bounding box to fill most of the canvas
+    const canvasSize = this.complexCanvas.width;
+    const boundsRange = 2.4;
+
+    // Calculate the required scale to fit the padded bounding box
+    const requiredScaleX = canvasSize / paddedWidth;
+    const requiredScaleY = canvasSize / paddedHeight;
+    const requiredScale = Math.min(requiredScaleX, requiredScaleY) * (boundsRange / canvasSize);
+
+    // Update the view state
+    this.viewState.centerX = -centerReal;
+    this.viewState.centerY = -centerImag;
+    this.viewState.scale = requiredScale * 1.1; // Add a little extra padding
+
+    // Ensure we don't zoom out too much
+    if (this.viewState.scale < 0.8) {
+      this.viewState.scale = 0.8;
+    }
+
+    // Redraw the scene
+    this.drawScene();
+  }
+
+  zoomToReference() {
+    if (this.currentConvergents.length === 0 || this.trueReferenceAngle === null) {
+      alert('Need valid convergents and reference angle to zoom.');
+      return;
+    }
+
+    // Get the Javascript reference point (True value)
+    const refRe = Math.cos(this.trueReferenceAngle);
+    const refIm = Math.sin(this.trueReferenceAngle);
+
+    // Get the last valid convergent
+    const lastConv = this.currentConvergents[this.currentConvergents.length - 1];
+
+    // Calculate the bounding box that contains both the reference point and last convergent
+    const minReal = Math.min(lastConv.re, refRe);
+    const maxReal = Math.max(lastConv.re, refRe);
+    const minImag = Math.min(lastConv.im, refIm);
+    const maxImag = Math.max(lastConv.im, refIm);
 
     // Calculate the center of the bounding box
     const centerReal = (minReal + maxReal) / 2;

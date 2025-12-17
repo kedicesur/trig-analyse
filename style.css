@@ -238,6 +238,14 @@ button#zoomToLast:hover {
     background-color: #8e44ad;
 }
 
+button#zoomToReference {
+    background-color: #e67e22; /* Orange */
+}
+
+button#zoomToReference:hover {
+    background-color: #d35400; /* Darker Orange */
+}
+
 .zoom-controls {
     display: flex;
     justify-content: center;
