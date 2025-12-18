@@ -255,17 +255,28 @@ export class ComplexVisualizerUI {
   }
 
   /**
-  * Find the index where convergents stop changing by checking only significant
-  * (imaginary) coefficients with a sliding window approach.
+  * Find the index where convergents stop changing by testing final convergents only.
+  * Logic:
+  * 1. Only check final convergents (not base convergents)
+  * 2. For each index i with non-zero imaginary coefficient:
+  *    - Check if finalConvergents[i-1] == finalConvergents[i] (strictly)  → return i
+  *    - Check if finalConvergents[i+1] == finalConvergents[i] (strictly)  → return i+1
+  *    - Check if finalConvergents[i] ≈ finalConvergents[prevIdx] (within EPSILON) → return i-1
   * @param {Complex[]} coefficients - Array of coefficients
-  * @param {Complex[]} baseConvergents - Array of base convergents
+  * @param {Complex[]} baseConvergents - Array of base convergents (unused)
   * @param {Complex[]} finalConvergents - Array of final convergents
   * @returns {number} Index of first redundant convergent, or -1 if none
   */
   findConvergenceIndex(coefficients, baseConvergents, finalConvergents) {
-    const EPSILON = 2e-15;
+    // Dynamically scale EPSILON based on denominator:
+    // Small denominators → stricter tolerance (keep small imaginary parts longer)
+    // Large denominators → looser tolerance (converge sooner)
+    const d = (this.cachedExactRational && this.cachedExactRational.d > 0) ? this.cachedExactRational.d : 1;
+    let factor = Math.log10(d); // scale factor based on denominator
+    factor = Math.max(1, Math.min(10, factor)); // clamp to reasonable range
+    const EPSILON = Number.EPSILON * factor;
     
-    let prevIdx = 0; // Start from baseline/identity
+    let prevIdx = 0; // Track the previous index with non-zero imaginary coefficient
     
     for (let i = 1; i < coefficients.length; i++) {
       // Skip purely real coefficients (insignificant for convergence)
@@ -273,32 +284,30 @@ export class ComplexVisualizerUI {
         continue;
       }
       
-      // Check stability: either Re OR Im must be within epsilon
-      const baseReDiff = Math.abs(baseConvergents[prevIdx].re - baseConvergents[i].re);
-      const baseImDiff = Math.abs(baseConvergents[prevIdx].im - baseConvergents[i].im);
-      const baseStable = (baseReDiff <= EPSILON && baseImDiff <= EPSILON);
+      // Step 2: Check if immediately previous or next final convergent is strictly equal
       
-      const finalReDiff = Math.abs(finalConvergents[prevIdx].re - finalConvergents[i].re);
-      const finalImDiff = Math.abs(finalConvergents[prevIdx].im - finalConvergents[i].im);
-      const finalStable = (finalReDiff <= EPSILON && finalImDiff <= EPSILON);
+      // Check if finalConvergents[i-1] equals finalConvergents[i]
+      if (i > 0 && finalConvergents[i-1] &&
+          finalConvergents[i-1].re === finalConvergents[i].re &&
+          finalConvergents[i-1].im === finalConvergents[i].im) {
+        return i; // current is first redundant
+      }
       
-      if (baseStable && finalStable) {
-        // Refinement: Check if the immediately previous convergent (from skipped 
-        // real-only coefficient) is already equal to prevIdx convergent
-        if (prevIdx > 0 && Math.abs(coefficients[prevIdx - 1].im) <= Number.EPSILON) {
-          // prevIdx - 1 has a real-only coefficient, check if its convergent equals prevIdx
-          const reDiff = Math.abs(finalConvergents[prevIdx - 1].re - finalConvergents[prevIdx].re);
-          const imDiff = Math.abs(finalConvergents[prevIdx - 1].im - finalConvergents[prevIdx].im);
-          
-          //if (reDiff <= Number.EPSILON && imDiff <= Number.EPSILON) {
-          if (reDiff <= EPSILON/prevIdx && imDiff <= EPSILON/prevIdx) {
-            // The real-only coefficient didn't change the convergent
-            // Use prevIdx - 1 as the last valid convergent
-            return prevIdx; // prevIdx - 1 is last valid, so first redundant is prevIdx
-          }
-        }
+      // Check if finalConvergents[i+1] equals finalConvergents[i]
+      if (i + 1 < finalConvergents.length && finalConvergents[i+1] &&
+          finalConvergents[i+1].re === finalConvergents[i].re &&
+          finalConvergents[i+1].im === finalConvergents[i].im) {
+        return i + 1; // next is first redundant
+      }
+      
+      // Step 3: Check current against previous (with non-zero imaginary coefficient) within EPSILON
+      if (prevIdx > 0 && finalConvergents[prevIdx]) {
+        const reDiff = Math.abs(finalConvergents[i].re - finalConvergents[prevIdx].re);
+        const imDiff = Math.abs(finalConvergents[i].im - finalConvergents[prevIdx].im);
         
-        return prevIdx + 1; // Default: prevIdx is last valid, prevIdx + 1 is first redundant
+        if (reDiff <= EPSILON && imDiff <= EPSILON) {
+          return i - 1; // previous is first redundant
+        }
       }
       
       prevIdx = i;
