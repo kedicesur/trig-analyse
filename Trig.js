@@ -109,7 +109,7 @@ function _powUnitComplex(base, exponent) {
       base = base.multiply(base);
       //dont use excess normalization here
       //currentBase = currentBase.normalize();
-      power >>= 1;
+      power = Math.floor(power / 2);
   }
 
   return exponent < 0 ? result.normalize().conjugate() : result.normalize();
@@ -147,7 +147,6 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
     numerator = rational.n;
     denominator = rational.d;
   }
-  
   // Generate coefficients for the denominator
   const coefficients = generateCoefficients(denominator, terms);
   
