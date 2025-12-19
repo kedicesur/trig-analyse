@@ -122,11 +122,12 @@ export class ComplexVisualizerUI {
     window.addEventListener('resize', () => this.resizeCanvas());
 
     // Initial plot
-    setTimeout(() => {
+    // Perform immediately but within a frame to ensure CSS/Layout is ready
+    requestAnimationFrame(() => {
       // Update rational input from initial decimal value
       this.updateRationalFromDecimal();
       this.generateAndPlot();
-    }, 100);
+    });
   }
 
   setupInputEvents() {
@@ -268,7 +269,7 @@ export class ComplexVisualizerUI {
   * @param {Complex[]} finalConvergents - Array of final convergents
   * @returns {number} Index of first redundant convergent, or -1 if none
   */
-  findConvergenceIndex(coefficients, baseConvergents, finalConvergents) {
+  findConvergenceIndex(coefficients, finalConvergents) {
     // Dynamically scale EPSILON based on denominator:
     // Small denominators → stricter tolerance (keep small imaginary parts longer)
     // Large denominators → looser tolerance (converge sooner)
@@ -1112,7 +1113,7 @@ export class ComplexVisualizerUI {
 
       // Find where convergents become redundant
       // NEW: Check both base AND final convergents, only at significant (imaginary) coefficient indices
-      const redundantStartIndex = this.findConvergenceIndex(coefficients, baseConvergents, allConvergents);
+      const redundantStartIndex = this.findConvergenceIndex(coefficients, allConvergents);
 
       // Store all convergents and redundancy info for drawing
       this.allConvergents = allConvergents;
@@ -1174,8 +1175,11 @@ export class ComplexVisualizerUI {
     // The event listener will call updateRationalFromDecimal which now has proper flag protection
     this.angleInput.dispatchEvent(new Event('input'));
 
-    // Generate and plot
-    this.generateAndPlot();
+    // Generate and plot asynchronously to allow the UI (input field)
+    // to update visually before heavy BigInt math blocks the main thread.
+    setTimeout(() => {
+        this.generateAndPlot();
+    }, 0);
   }
 
   resetView() {
