@@ -1,61 +1,77 @@
-// Trig.js - Trigonometric functions using continued fractions
+// Trig.js - Trigonometric functions using continued fractions with BigInt rationals
 
 import Complex from './Complex.js';
 import { toRational } from './Utils.js';
 
 /**
  * Generates the first k CSCF coefficients for e^(i*1/n) where n > 1.
+ * Now returns Complex numbers with BigInt rational components
  * @param {number} n - Denominator
  * @param {number} k - Number of coefficients to generate
  * @returns {Complex[]} Array of coefficients
  */
 export function generateCoefficients(n, k) {
-  if (n === 1) return [ new Complex(1, 1)
-                      , new Complex(-2, 1)
-                      , new Complex(1, 3)
-                      , new Complex(-2, 0)
-                      , new Complex(0, -5)
-                      , new Complex(2, 0)
-                      , new Complex(0, 7)
-                      , new Complex(-2, 0)
-                      , new Complex(0, -9)
-                      , new Complex(2, 0)
-                      , new Complex(0, 11)
-                      , new Complex(-2, 0)
-                      , new Complex(0, -13)
-                      , new Complex(2, 0)
-                      , new Complex(0, 15)
-                      , new Complex(-2, 0)
-                      , new Complex(0, -17)
-                      , new Complex(2, 0)
-                      , new Complex(0, 19)
-                      , new Complex(-2, 0)
-                      , new Complex(0, -21)
-                      , new Complex(2, 0)
-                      , new Complex(0, 23)
-                      , new Complex(-2, 0)
-                      ].slice(0,k);
-  const coefficients = [];
-  for (let c = 0; c < k; c++) {
-    let re = 0, im = 0;
-
-    if (c === 0) {
-      re = 1;
-      im = 0;
-    } else if (c % 2 !== 0) { // Odd index
-      re = 0;
-      im = c * n * Math.pow(-1, (c + 1) / 2);
-    } else { // Even index
-      re = 2 * Math.pow(-1, c / 2);
-      im = 0;
-    }
-    coefficients.push(new Complex(re, im));
+  if (n === 1) {
+    // Special case for n=1, hardcoded coefficients
+    const hardcodedCoeffs = [
+      new Complex(1n, 1n, 1n, 1n),      // 1 + 1i
+      new Complex(-2n, 1n, 1n, 1n),     // -2 + 1i
+      new Complex(1n, 1n, 3n, 1n),      // 1 + 3i
+      new Complex(-2n, 1n, 0n, 1n),     // -2 + 0i
+      new Complex(0n, 1n, -5n, 1n),     // 0 - 5i
+      new Complex(2n, 1n, 0n, 1n),      // 2 + 0i
+      new Complex(0n, 1n, 7n, 1n),      // 0 + 7i
+      new Complex(-2n, 1n, 0n, 1n),     // -2 + 0i
+      new Complex(0n, 1n, -9n, 1n),     // 0 - 9i
+      new Complex(2n, 1n, 0n, 1n),      // 2 + 0i
+      new Complex(0n, 1n, 11n, 1n),     // 0 + 11i
+      new Complex(-2n, 1n, 0n, 1n),     // -2 + 0i
+      new Complex(0n, 1n, -13n, 1n),    // 0 - 13i
+      new Complex(2n, 1n, 0n, 1n),      // 2 + 0i
+      new Complex(0n, 1n, 15n, 1n),     // 0 + 15i
+      new Complex(-2n, 1n, 0n, 1n),     // -2 + 0i
+      new Complex(0n, 1n, -17n, 1n),    // 0 - 17i
+      new Complex(2n, 1n, 0n, 1n),      // 2 + 0i
+      new Complex(0n, 1n, 19n, 1n),     // 0 + 19i
+      new Complex(-2n, 1n, 0n, 1n),     // -2 + 0i
+      new Complex(0n, 1n, -21n, 1n),    // 0 - 21i
+      new Complex(2n, 1n, 0n, 1n),      // 2 + 0i
+      new Complex(0n, 1n, 23n, 1n),     // 0 + 23i
+      new Complex(-2n, 1n, 0n, 1n),     // -2 + 0i
+    ];
+    return hardcodedCoeffs.slice(0, k);
   }
+  
+  const coefficients = [];
+  const nBig = BigInt(n);
+  
+  for (let c = 0; c < k; c++) {
+    const cBig = BigInt(c);
+    
+    if (c === 0) {
+      // First coefficient: 1 + 0i
+      coefficients.push(new Complex(1n, 1n, 0n, 1n));
+    } else if (c % 2 !== 0) {
+      // Odd index: 0 + (c * n * (-1)^((c+1)/2))i
+      const power = (c + 1) / 2;
+      const sign = (power % 2 === 0) ? 1n : -1n;
+      const imagValue = sign * cBig * nBig;
+      coefficients.push(new Complex(0n, 1n, imagValue, 1n));
+    } else {
+      // Even index: (2 * (-1)^(c/2)) + 0i
+      const power = c / 2;
+      const sign = (power % 2 === 0) ? 1n : -1n;
+      const realValue = 2n * sign;
+      coefficients.push(new Complex(realValue, 1n, 0n, 1n));
+    }
+  }
+  
   return coefficients;
 }
 
 /**
  * Computes ALL convergents (not just the final one) for given coefficients.
+ * Uses rational BigInt arithmetic throughout
  * @param {Complex[]} coefficients - Array of coefficients
  * @returns {Complex[]} Array of convergents at each step
  */
@@ -76,11 +92,16 @@ export function computeAllConvergents(coefficients) {
 
   for (let i = 0; i < coefficients.length; i++) {
     const a = coefficients[i];
+    
+    // p_n = a * p_prev + p_prev_prev
     const p_n = a.multiply(p_prev).add(p_prev_prev);
+    
+    // q_n = a * q_prev + q_prev_prev
     const q_n = a.multiply(q_prev).add(q_prev_prev);
 
-    // Store the convergent at this step
-    convergents.push(p_n.divide(q_n));
+    // convergent = p_n / q_n
+    const convergent = p_n.divide(q_n);
+    convergents.push(convergent);
 
     // Update for next iteration
     p_prev_prev = p_prev;
@@ -92,27 +113,35 @@ export function computeAllConvergents(coefficients) {
   return convergents;
 }
 
-function _powUnitComplex(base, exponent) {
-  // Normalize base once before exponentiation loops to prevent overflow
-  // This handles cases where the base convergent magnitude > 1 (e.g. 1+1i for q=1)
-  // let currentBase = base.normalize();
+/**
+ * Stable complex exponentiation using binary exponentiation with normalization
+ * Based on your reference implementation (powComplexStable)
+ * @param {Complex} base - Base complex number
+ * @param {bigint|number} exponent - Exponent (will be converted to BigInt)
+ * @returns {Complex} base^exponent
+ */
+function powComplexStable(base, exponent) {
+  // Convert exponent to BigInt if needed
+  let exp = typeof exponent === 'bigint' ? exponent : BigInt(Math.abs(Math.round(exponent)));
+  const isNegative = (typeof exponent === 'number' && exponent < 0);
   
   let result = Complex.ONE;
-  let power = Math.abs(exponent);
+  let x = base;
 
-  while (power > 0) {
-    if (power % 2 === 1) {
-      result = result.multiply(base);
-      //dont use excess normalization here
-      //result = result.normalize();
+  while (exp > 0n) {
+    if (exp & 1n) {
+      result = result.multiply(x);
+      // Normalize EVERY iteration using the now-safe normalizeComplex
+      result = Complex.normalizeComplex(result);
     }
-      base = base.multiply(base);
-      //dont use excess normalization here
-      //currentBase = currentBase.normalize();
-      power = Math.floor(power / 2);
+    x = x.multiply(x);
+    // Normalize x EVERY iteration - absolute necessity to prevent digit explosion
+    x = Complex.normalizeComplex(x);
+    exp >>= 1n;
   }
-
-  return exponent < 0 ? result.normalize().conjugate() : result.normalize();
+  
+  // Handle negative exponent by taking conjugate (for unit complex)
+  return isNegative ? result.conjugate() : result;
 }
 
 /**
@@ -120,7 +149,7 @@ function _powUnitComplex(base, exponent) {
  * Returns both base and final convergents
  * @param {number} angle - Angle in radians
  * @param {number} terms - Number of terms to use
- * @param {Object} [exactRational] - Optional {n, d} object to bypass toRational
+ * @param {Object} [exactRational] - Optional {n, d} object with BigInt values
  * @returns {Object} { baseConvergents: Complex[], finalConvergents: Complex[] }
  */
 export function expWithConvergents(angle, terms = 12, exactRational = null) {
@@ -137,24 +166,30 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
 
   let numerator, denominator;
 
-  // Use exact rational if provided and valid
-  if (exactRational && typeof exactRational.n === 'number' && typeof exactRational.d === 'number') {
-    numerator = exactRational.n;
-    denominator = exactRational.d;
+  // Use exact rational if provided
+  if (exactRational && exactRational.n !== undefined && exactRational.d !== undefined) {
+    // Convert to BigInt if not already
+    numerator = typeof exactRational.n === 'bigint' ? exactRational.n : BigInt(exactRational.n);
+    denominator = typeof exactRational.d === 'bigint' ? exactRational.d : BigInt(exactRational.d);
   } else {
     // Otherwise fall back to converting the float
     const rational = toRational(angle);
-    numerator = rational.n;
-    denominator = rational.d;
+    numerator = BigInt(rational.n);
+    denominator = BigInt(rational.d);
   }
+  
+  // Convert denominator to number for coefficient generation
+  // This is safe because toRational produces reasonable denominators
+  const denominatorNum = Number(denominator);
+  
   // Generate coefficients for the denominator
-  const coefficients = generateCoefficients(denominator, terms);
+  const coefficients = generateCoefficients(denominatorNum, terms);
   
   // Get all convergents for e^(i/denominator)
   const baseConvergents = computeAllConvergents(coefficients);
   
   // Raise each convergent to the numerator to get approximations for e^(i * numerator/denominator)
-  const finalConvergents = baseConvergents.map(conv => _powUnitComplex(conv, numerator));
+  const finalConvergents = baseConvergents.map(conv => powComplexStable(conv, numerator));
   
   return { baseConvergents, finalConvergents };
 }
@@ -177,7 +212,8 @@ export function exp(angle, terms = 12) {
  * @returns {number} Cosine of the angle
  */
 export function cos(angle, terms = 12) {
-  return exp(angle, terms).re;
+  const result = exp(angle, terms);
+  return result.toFloat().re;
 }
 
 /**
@@ -187,5 +223,6 @@ export function cos(angle, terms = 12) {
  * @returns {number} Sine of the angle
  */
 export function sin(angle, terms = 12) {
-  return exp(angle, terms).im;
+  const result = exp(angle, terms);
+  return result.toFloat().im;
 }

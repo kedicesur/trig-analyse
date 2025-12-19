@@ -2,6 +2,7 @@
 
 import { generateCoefficients, expWithConvergents } from './Trig.js';
 import { toRational
+       , toBigIntRational
        , formatFullPrecision
        , cleanTrailingZeros
        , formatDifference
@@ -271,39 +272,49 @@ export class ComplexVisualizerUI {
     // Dynamically scale EPSILON based on denominator:
     // Small denominators → stricter tolerance (keep small imaginary parts longer)
     // Large denominators → looser tolerance (converge sooner)
-    const d = (this.cachedExactRational && this.cachedExactRational.d > 0) ? this.cachedExactRational.d : 1;
-    let factor = Math.log10(d); // scale factor based on denominator
-    factor = Math.max(1, Math.min(10, factor)); // clamp to reasonable range
-    const EPSILON = Number.EPSILON * factor;
+    // const d = (this.cachedExactRational && this.cachedExactRational.d > 0n) ? Number(this.cachedExactRational.d) : 1;
+    // let factor = Math.log10(d); // scale factor based on denominator
+    // factor = Math.max(1, Math.min(10, factor)); // clamp to reasonable range
+    const EPSILON = Number.EPSILON; //* factor;
     
     let prevIdx = 0; // Track the previous index with non-zero imaginary coefficient
     
     for (let i = 1; i < coefficients.length; i++) {
       // Skip purely real coefficients (insignificant for convergence)
-      if (Math.abs(coefficients[i].im) <= Number.EPSILON) {
+      // Convert to float since coefficients use rational BigInt Complex numbers
+      const coeffFloat = coefficients[i].toFloat();
+      if (Math.abs(coeffFloat.im) <= Number.EPSILON) {
         continue;
       }
       
       // Step 2: Check if immediately previous or next final convergent is strictly equal
       
       // Check if finalConvergents[i-1] equals finalConvergents[i]
+      // Now comparing rational BigInt Complex numbers
       if (i > 0 && finalConvergents[i-1] &&
-          finalConvergents[i-1].re === finalConvergents[i].re &&
-          finalConvergents[i-1].im === finalConvergents[i].im) {
+          finalConvergents[i-1].re.n === finalConvergents[i].re.n &&
+          finalConvergents[i-1].re.d === finalConvergents[i].re.d &&
+          finalConvergents[i-1].im.n === finalConvergents[i].im.n &&
+          finalConvergents[i-1].im.d === finalConvergents[i].im.d) {
         return i; // current is first redundant
       }
       
       // Check if finalConvergents[i+1] equals finalConvergents[i]
       if (i + 1 < finalConvergents.length && finalConvergents[i+1] &&
-          finalConvergents[i+1].re === finalConvergents[i].re &&
-          finalConvergents[i+1].im === finalConvergents[i].im) {
+          finalConvergents[i+1].re.n === finalConvergents[i].re.n &&
+          finalConvergents[i+1].re.d === finalConvergents[i].re.d &&
+          finalConvergents[i+1].im.n === finalConvergents[i].im.n &&
+          finalConvergents[i+1].im.d === finalConvergents[i].im.d) {
         return i + 1; // next is first redundant
       }
       
       // Step 3: Check current against previous (with non-zero imaginary coefficient) within EPSILON
+      // Convert to floats for comparison
       if (prevIdx > 0 && finalConvergents[prevIdx]) {
-        const reDiff = Math.abs(finalConvergents[i].re - finalConvergents[prevIdx].re);
-        const imDiff = Math.abs(finalConvergents[i].im - finalConvergents[prevIdx].im);
+        const currFloat = finalConvergents[i].toFloat();
+        const prevFloat = finalConvergents[prevIdx].toFloat();
+        const reDiff = Math.abs(currFloat.re - prevFloat.re);
+        const imDiff = Math.abs(currFloat.im - prevFloat.im);
         
         if (reDiff <= EPSILON && imDiff <= EPSILON) {
           return i - 1; // previous is first redundant
@@ -341,13 +352,18 @@ export class ComplexVisualizerUI {
     // Convert to rational
     const rational = toRational(angleWithoutPi);
 
+    // Set flag to prevent circular updates
+    this.isUpdatingFromDecimal = true;
+    
     // Update rational inputs
     this.numeratorInput.value = rational.n;
     this.denominatorInput.value = rational.d;
     
-    // Cache the exact rational form of the FULL decimal angle
+    this.isUpdatingFromDecimal = false;
+    
+    // Cache the exact rational form of the FULL decimal angle as BigInt
     // Since we started with a decimal, we convert THAT to rational
-    this.cachedExactRational = toRational(decimal);
+    this.cachedExactRational = toBigIntRational(decimal);
   }
 
   // Update decimal input from rational
@@ -383,13 +399,18 @@ export class ComplexVisualizerUI {
     const combinedDenominator = denominator * piDen;
     const decimal = combinedNumerator / combinedDenominator;
 
+    // Set flag to prevent circular updates
+    this.isUpdatingFromRational = true;
+    
     // Update decimal input
     this.angleInput.value = decimal;
     
-    // Cache the exact minimal rational fraction directly from the clean float
+    this.isUpdatingFromRational = false;
+    
+    // Cache the exact minimal rational fraction as BigInt directly from the clean float
     // This enables the solver to use the precise fraction (e.g. 111/53) instead 
     // of a noisy one derived from the decimal later.
-    this.cachedExactRational = toRational(decimal);
+    this.cachedExactRational = toBigIntRational(decimal);
   }
 
   createTooltip() {
@@ -421,7 +442,8 @@ export class ComplexVisualizerUI {
 
       for (let i = 0; i < stepsToCheck; i++) {
         const convergent = this.currentConvergents[i];
-        const point = this.mapToCanvas(convergent.re, convergent.im);
+        const convFloat = convergent.toFloat();
+        const point = this.mapToCanvas(convFloat.re, convFloat.im);
 
         const distance = Math.hypot(mouseX - point.x, mouseY - point.y);
         this.hoveredConvergent = null;
@@ -452,10 +474,13 @@ export class ComplexVisualizerUI {
     const conv = this.hoveredConvergent.convergent;
     const index = this.hoveredConvergent.index;
 
+    // Convert to float for display
+    const convFloat = conv.toFloat();
+    
     // Format content
-    const realStr = conv.re.toFixed(16).replace(/\.?0+$/, '');
-    const imagStr = Math.abs(conv.im).toFixed(16).replace(/\.?0+$/, '');
-    const sign = conv.im >= 0 ? '+' : '-';
+    const realStr = convFloat.re.toFixed(16).replace(/\.?0+$/, '');
+    const imagStr = Math.abs(convFloat.im).toFixed(16).replace(/\.?0+$/, '');
+    const sign = convFloat.im >= 0 ? '+' : '-';
     const magnitudeStr = conv.magnitude().toFixed(16).replace(/\.?0+$/, '');
 
     this.tooltip.innerHTML = `
@@ -786,7 +811,8 @@ export class ComplexVisualizerUI {
     this.ctx.beginPath();
 
     // Start from the first convergent (C0)
-    const firstPoint = this.mapToCanvas(this.currentConvergents[0].re, this.currentConvergents[0].im);
+    const firstFloat = this.currentConvergents[0].toFloat();
+    const firstPoint = this.mapToCanvas(firstFloat.re, firstFloat.im);
     this.ctx.moveTo(firstPoint.x, firstPoint.y);
 
     // Connect to subsequent convergents up to current step
@@ -795,7 +821,8 @@ export class ComplexVisualizerUI {
       this.currentConvergents.length;
 
     for (let i = 1; i < stepsToShow; i++) {
-      const point = this.mapToCanvas(this.currentConvergents[i].re, this.currentConvergents[i].im);
+      const convFloat = this.currentConvergents[i].toFloat();
+      const point = this.mapToCanvas(convFloat.re, convFloat.im);
       this.ctx.lineTo(point.x, point.y);
     }
 
@@ -804,7 +831,8 @@ export class ComplexVisualizerUI {
     // Draw convergents as points
     for (let i = 0; i < stepsToShow; i++) {
       const convergent = this.currentConvergents[i];
-      const point = this.mapToCanvas(convergent.re, convergent.im);
+      const convFloat = convergent.toFloat();
+      const point = this.mapToCanvas(convFloat.re, convFloat.im);
 
       // Determine color based on position in sequence
       let color;
@@ -869,7 +897,8 @@ export class ComplexVisualizerUI {
 
       for (let i = start; i < end; i++) {
         const convergent = this.allConvergents[i];
-        const point = this.mapToCanvas(convergent.re, convergent.im);
+        const convFloat = convergent.toFloat();
+        const point = this.mapToCanvas(convFloat.re, convFloat.im);
 
         // Determine base color for redundant points (faded pink)
         const baseColor = '#f8d7da';
@@ -971,8 +1000,9 @@ export class ComplexVisualizerUI {
         coeffEl.className = className;
         if (i < coefficients.length) {
             const c = coefficients[i];
-            const realInt = Math.round(c.re);
-            const imagInt = Math.round(c.im);
+            const cFloat = c.toFloat();
+            const realInt = Math.round(cFloat.re);
+            const imagInt = Math.round(cFloat.im);
             const sign = imagInt >= 0 ? '+' : '';
             coeffEl.textContent = `${realInt} ${sign} ${imagInt}i`;
         }
@@ -983,9 +1013,10 @@ export class ComplexVisualizerUI {
         baseEl.className = className;
         if (i < baseConvergents.length) {
             const b = baseConvergents[i];
-            const realStr = b.re.toFixed(17);
-            const imagStr = Math.abs(b.im).toFixed(17);
-            const sign = b.im >= 0 ? '+' : '-';
+            const bFloat = b.toFloat();
+            const realStr = bFloat.re.toFixed(17);
+            const imagStr = Math.abs(bFloat.im).toFixed(17);
+            const sign = bFloat.im >= 0 ? '+' : '-';
             baseEl.textContent = `${realStr} ${sign} ${imagStr}i`;
         }
         baseConvergentsList.appendChild(baseEl);
@@ -995,9 +1026,10 @@ export class ComplexVisualizerUI {
         finalEl.className = className;
         if (i < finalConvergents.length) {
             const f = finalConvergents[i];
-            const realStr = f.re.toFixed(17);
-            const imagStr = Math.abs(f.im).toFixed(17);
-            const sign = f.im >= 0 ? '+' : '-';
+            const fFloat = f.toFloat();
+            const realStr = fFloat.re.toFixed(17);
+            const imagStr = Math.abs(fFloat.im).toFixed(17);
+            const sign = fFloat.im >= 0 ? '+' : '-';
             finalEl.textContent = `${realStr} ${sign} ${imagStr}i`;
         }
         finalConvergentsList.appendChild(finalEl);
@@ -1034,7 +1066,7 @@ export class ComplexVisualizerUI {
     // Safety check: if cache is missing (shouldn't happen with correct events), calculate it
     let minimalRational = this.cachedExactRational;
     if (!minimalRational) {
-        minimalRational = toRational(angle);
+        minimalRational = toBigIntRational(angle);
         this.cachedExactRational = minimalRational;
     }
 
@@ -1042,8 +1074,8 @@ export class ComplexVisualizerUI {
     // We update this.lastGeneratedAngle to match what we assume we are solving for
     // We use (n/d) as the true angle if available from the cache
     let angleForCalculation = angle;
-    if (minimalRational && minimalRational.d !== 0) {
-        angleForCalculation = minimalRational.n / minimalRational.d;
+    if (minimalRational && minimalRational.d !== 0n) {
+        angleForCalculation = Number(minimalRational.n) / Number(minimalRational.d);
     }
     this.lastGeneratedAngle = angleForCalculation;
     
@@ -1071,11 +1103,11 @@ export class ComplexVisualizerUI {
     }
 
     // Generate coefficients with fixed count
-    // Use the minimal denominator found
-    const coefficients = generateCoefficients(minimalRational.d, this.COEFFICIENT_COUNT);
+    // Use the minimal denominator found (convert BigInt to number for coefficient generation)
+    const coefficients = generateCoefficients(Number(minimalRational.d), this.COEFFICIENT_COUNT);
 
-    // Calculate convergents (PASSING THE EXACT RATIONAL)
-    // Now returns { baseConvergents, finalConvergents }
+    // Calculate convergents (PASSING THE EXACT BIGINT RATIONAL)
+    // Now returns { baseConvergents, finalConvergents } with rational BigInt Complex numbers
     const { baseConvergents, finalConvergents: allConvergents } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
@@ -1138,10 +1170,9 @@ export class ComplexVisualizerUI {
     const randomAngle = (Math.random() * 2 * Math.PI).toFixed(6);
     this.angleInput.value = randomAngle;
 
-    // Update rational input from decimal
-    this.isUpdatingFromRational = true;
-    this.updateRationalFromDecimal();
-    this.isUpdatingFromRational = false;
+    // Trigger the input event to update rational values
+    // The event listener will call updateRationalFromDecimal which now has proper flag protection
+    this.angleInput.dispatchEvent(new Event('input'));
 
     // Generate and plot
     this.generateAndPlot();
@@ -1168,8 +1199,8 @@ export class ComplexVisualizerUI {
     }
 
     const lastIndex = this.currentConvergents.length - 1;
-    const lastConv = this.currentConvergents[lastIndex];
-    const prevConv = this.currentConvergents[lastIndex - 1]; // Second-to-last is guaranteed to exist
+    const lastConv = this.currentConvergents[lastIndex].toFloat();
+    const prevConv = this.currentConvergents[lastIndex - 1].toFloat(); // Second-to-last is guaranteed to exist
 
     // Calculate the bounding box that contains both convergents
     const minReal = Math.min(lastConv.re, prevConv.re);
@@ -1230,7 +1261,7 @@ export class ComplexVisualizerUI {
     const refIm = Math.sin(this.trueReferenceAngle);
 
     // Get the last valid convergent
-    const lastConv = this.currentConvergents[this.currentConvergents.length - 1];
+    const lastConv = this.currentConvergents[this.currentConvergents.length - 1].toFloat();
 
     // Calculate the bounding box that contains both the reference point and last convergent
     const minReal = Math.min(lastConv.re, refRe);
@@ -1306,8 +1337,9 @@ export class ComplexVisualizerUI {
     }
 
     // Our convergent values (cos = real part, sin = imaginary part)
-    const convCos = convergent.re;
-    const convSin = convergent.im;
+    const convFloat = convergent.toFloat();
+    const convCos = convFloat.re;
+    const convSin = convFloat.im;
     let convTan;
 
     // Calculate our tangent (handle division by zero)

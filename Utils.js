@@ -16,14 +16,89 @@ export function toRational(x) {
   let x_ = 1 / (x - m);
   let p_ = 1, q_ = 0, p = m, q = 1;
 
+  // Safety guards to prevent infinite loop
+  const MAX_ITERATIONS = 100;
+  const MAX_DENOMINATOR = 1e15;
+  let iterations = 0;
+
   while (Math.abs(x - p / q) > Number.EPSILON) {
+    // Check iteration limit
+    if (++iterations > MAX_ITERATIONS) {
+      break;
+    }
+
+    // Check for invalid x_
+    if (!isFinite(x_) || x_ === 0) {
+      break;
+    }
+
     m = Math.floor(x_);
     x_ = 1 / (x_ - m);
     [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
+
+    // Check denominator size
+    if (q > MAX_DENOMINATOR || q > Number.MAX_SAFE_INTEGER) {
+      break;
+    }
   }
 
   return { n: sign * p, d: q };
 }
+
+/**
+ * Convert a decimal number to a BigInt rational approximation
+ * @param {number} x - Decimal number to convert
+ * @returns {{n: bigint, d: bigint}} Object with BigInt numerator and denominator
+ */
+export function toBigIntRational(x) {
+  if (!isFinite(x)) {
+    throw new Error('Cannot convert non-finite number to BigInt rational');
+  }
+  if (x === 0) return { n: 0n, d: 1n };
+
+  const sign = Math.sign(x);
+  x = Math.abs(x);
+
+  let m = Math.floor(x);
+  if (x === m) return { n: BigInt(sign * m), d: 1n };
+
+  let x_ = 1 / (x - m);
+  let p_ = 1n, q_ = 0n, p = BigInt(m), q = 1n;
+
+  // Safety guards to prevent infinite loop
+  const MAX_ITERATIONS = 100;
+  const MAX_DENOMINATOR = 10n ** 15n; // Limit denominator size
+  let iterations = 0;
+
+  while (Math.abs(x - Number(p) / Number(q)) > Number.EPSILON) {
+    // Check iteration limit
+    if (++iterations > MAX_ITERATIONS) {
+      break; // Exit if too many iterations
+    }
+
+    // Check for invalid x_
+    if (!isFinite(x_) || x_ === 0) {
+      break; // Exit if x_ is infinite, NaN, or zero
+    }
+
+    m = BigInt(Math.floor(x_));
+    x_ = 1 / (x_ - Number(m));
+    [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
+
+    // Check denominator size to prevent overflow
+    if (q > MAX_DENOMINATOR) {
+      break; // Exit if denominator grows too large
+    }
+
+    // Check for precision loss (when conversion to Number loses information)
+    if (q > Number.MAX_SAFE_INTEGER) {
+      break; // Exit if we've lost precision in the convergence check
+    }
+  }
+
+  return { n: BigInt(sign) * p, d: q };
+}
+
 
 /**
  * Format a number to full double precision (17 digits)
