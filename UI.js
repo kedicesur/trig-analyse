@@ -26,6 +26,7 @@ export class ComplexVisualizerUI {
     this.currentConvergentElement = document.getElementById('currentConvergent');
     this.totalConvergentsElement = document.getElementById('totalConvergents');
     this.distanceToUnitCircleElement = document.getElementById('distanceToUnitCircle');
+    this.headerFormula = document.getElementById('headerFormula');
 
     // Canvas context
     this.ctx = this.complexCanvas.getContext('2d');
@@ -365,6 +366,9 @@ export class ComplexVisualizerUI {
     // Cache the exact rational form of the FULL decimal angle as BigInt
     // Since we started with a decimal, we convert THAT to rational
     this.cachedExactRational = toBigIntRational(decimal);
+
+    // Update the visual formula in the header
+    this.updateHeaderFormula();
   }
 
   // Update decimal input from rational
@@ -412,6 +416,9 @@ export class ComplexVisualizerUI {
     // This enables the solver to use the precise fraction (e.g. 111/53) instead 
     // of a noisy one derived from the decimal later.
     this.cachedExactRational = toBigIntRational(decimal);
+
+    // Update the visual formula in the header
+    this.updateHeaderFormula();
   }
 
   createTooltip() {
@@ -1070,6 +1077,9 @@ export class ComplexVisualizerUI {
         minimalRational = toBigIntRational(angle);
         this.cachedExactRational = minimalRational;
     }
+    
+    // Update the visual formula in the header
+    this.updateHeaderFormula();
 
     // Pass to Solver
     // We update this.lastGeneratedAngle to match what we assume we are solving for
@@ -1476,5 +1486,56 @@ export class ComplexVisualizerUI {
 
     // Add tooltip with exact error
     this.convergenceStatusElement.title = `Average error: ${avgError.toExponential(6)}`;
+  }
+
+  /**
+   * Update the formula display in the input header
+   * Renders e^(i * n/d) using a vertically stacked fraction.
+   */
+  updateHeaderFormula() {
+    if (!this.headerFormula || !this.cachedExactRational) return;
+    
+    const { n, d } = this.cachedExactRational;
+    
+    // Normalize n and d sign (d should be positive)
+    let nFinal = n;
+    let dFinal = d;
+    if (dFinal < 0n) {
+        nFinal = -nFinal;
+        dFinal = -dFinal;
+    }
+
+    // Base HTML: "Calculate for e"
+    let headerHTML = 'Calculate for ';
+    
+    if (nFinal === 1n && dFinal === 1n) {
+      // Simplest case: e^i
+      headerHTML += '<span class="base-e">e</span><span class="exponent">i</span>';
+    } else if (nFinal === 1n) {
+       // Case: e^(i · 1/d)
+       const fractionHTML = `
+        <div class="header-fraction">
+          <span class="num">1</span>
+          <div class="vinculum"></div>
+          <span class="den">${dFinal}</span>
+        </div>
+      `;
+      headerHTML += `<span class="base-e">e</span><span class="exponent">i &middot; ${fractionHTML}</span>`;
+    } else if (dFinal === 1n) {
+       // Case: e^(i · n)
+       headerHTML += `<span class="base-e">e</span><span class="exponent">i &middot; ${nFinal}</span>`;
+    } else {
+      // General case: e^(i · n/d)
+      const fractionHTML = `
+        <div class="header-fraction">
+          <span class="num">${nFinal}</span>
+          <div class="vinculum"></div>
+          <span class="den">${dFinal}</span>
+        </div>
+      `;
+      headerHTML += `<span class="base-e">e</span><span class="exponent">i &middot; ${fractionHTML}</span>`;
+    }
+    
+    this.headerFormula.innerHTML = headerHTML;
   }
 }
