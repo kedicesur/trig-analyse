@@ -257,77 +257,6 @@ export class ComplexVisualizerUI {
     });
   }
 
-  /**
-  * Find the index where convergents stop changing by testing final convergents only.
-  * Logic:
-  * 1. Only check final convergents (not base convergents)
-  * 2. For each index i with non-zero imaginary coefficient:
-  *    - Check if finalConvergents[i-1] == finalConvergents[i] (strictly)  → return i
-  *    - Check if finalConvergents[i+1] == finalConvergents[i] (strictly)  → return i+1
-  *    - Check if finalConvergents[i] ≈ finalConvergents[prevIdx] (within EPSILON) → return i-1
-  * @param {Complex[]} coefficients - Array of coefficients
-  * @param {Complex[]} baseConvergents - Array of base convergents (unused)
-  * @param {Complex[]} finalConvergents - Array of final convergents
-  * @returns {number} Index of first redundant convergent, or -1 if none
-  */
-  findConvergenceIndex(coefficients, finalConvergents) {
-    // Dynamically scale EPSILON based on denominator:
-    // Small denominators → stricter tolerance (keep small imaginary parts longer)
-    // Large denominators → looser tolerance (converge sooner)
-    // const d = (this.cachedExactRational && this.cachedExactRational.d > 0n) ? Number(this.cachedExactRational.d) : 1;
-    // let factor = Math.log10(d); // scale factor based on denominator
-    // factor = Math.max(1, Math.min(10, factor)); // clamp to reasonable range
-    const EPSILON = Number.EPSILON; //* factor;
-    
-    let prevIdx = 0; // Track the previous index with non-zero imaginary coefficient
-    
-    for (let i = 1; i < coefficients.length; i++) {
-      // Skip purely real coefficients (insignificant for convergence)
-      // Convert to float since coefficients use rational BigInt Complex numbers
-      const coeffFloat = coefficients[i].toFloat();
-      if (Math.abs(coeffFloat.im) <= Number.EPSILON) {
-        continue;
-      }
-      
-      // Step 2: Check if immediately previous or next final convergent is strictly equal
-      
-      // Check if finalConvergents[i-1] equals finalConvergents[i]
-      // Now comparing rational BigInt Complex numbers
-      if (i > 0 && finalConvergents[i-1] &&
-          finalConvergents[i-1].re.n === finalConvergents[i].re.n &&
-          finalConvergents[i-1].re.d === finalConvergents[i].re.d &&
-          finalConvergents[i-1].im.n === finalConvergents[i].im.n &&
-          finalConvergents[i-1].im.d === finalConvergents[i].im.d) {
-        return i; // current is first redundant
-      }
-      
-      // Check if finalConvergents[i+1] equals finalConvergents[i]
-      if (i + 1 < finalConvergents.length && finalConvergents[i+1] &&
-          finalConvergents[i+1].re.n === finalConvergents[i].re.n &&
-          finalConvergents[i+1].re.d === finalConvergents[i].re.d &&
-          finalConvergents[i+1].im.n === finalConvergents[i].im.n &&
-          finalConvergents[i+1].im.d === finalConvergents[i].im.d) {
-        return i + 1; // next is first redundant
-      }
-      
-      // Step 3: Check current against previous (with non-zero imaginary coefficient) within EPSILON
-      // Convert to floats for comparison
-      if (prevIdx > 0 && finalConvergents[prevIdx]) {
-        const currFloat = finalConvergents[i].toFloat();
-        const prevFloat = finalConvergents[prevIdx].toFloat();
-        const reDiff = Math.abs(currFloat.re - prevFloat.re);
-        const imDiff = Math.abs(currFloat.im - prevFloat.im);
-        
-        if (reDiff <= EPSILON && imDiff <= EPSILON) {
-          return i - 1; // previous is first redundant
-        }
-      }
-      
-      prevIdx = i;
-    }
-    
-    return -1; // No convergence detected
-  }
 
   // Convert π string to numeric value
   parsePiValue(piStr) {
@@ -1123,8 +1052,9 @@ export class ComplexVisualizerUI {
     const { baseConvergents, finalConvergents: allConvergents, mathLimitIndex } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
-      // NEW: Check both base AND final convergents, only at significant (imaginary) coefficient indices
-      const redundantStartIndex = this.findConvergenceIndex(coefficients, allConvergents);
+      // SIMPLIFIED: Strictly use the mathematical limit index.
+      // If mathLimitIndex is found, everything AFTER it is redundant.
+      const redundantStartIndex = mathLimitIndex >= 0 ? mathLimitIndex + 1 : -1;
 
       // Store all convergents and redundancy info for drawing
       this.allConvergents = allConvergents;

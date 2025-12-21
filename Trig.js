@@ -2,7 +2,7 @@
 
 import Complex from './Complex.js';
 import { toRational } from './Utils.js';
-import { addRational, multiplyRational } from './RationalBigInt.js';
+import { multiplyRational } from './RationalBigInt.js';
 
 /**
  * Generates the first k CSCF coefficients for e^(i*1/n) where n > 1.
@@ -117,17 +117,14 @@ export function computeAllConvergents(coefficients, numerator = 1n) {
       const a_next = coefficients[i+1];
       
       // |q_n|^2 = q_n.re^2 + q_n.im^2
-      const qn_re_sq = multiplyRational(q_n.re, q_n.re);
-      const qn_im_sq = multiplyRational(q_n.im, q_n.im);
-      const qn_mag_sq = addRational(qn_re_sq, qn_im_sq);
+      // |q_n|^2 = q_n.re^2 + q_n.im^2
+      const qn_mag_sq = q_n.magnitudeSquaredRational();
       
       // |q_n|^4 = qn_mag_sq * qn_mag_sq
       const qn_mag_quat = multiplyRational(qn_mag_sq, qn_mag_sq);
       
       // |a_{n+1}|^2 = a_next.re^2 + a_next.im^2
-      const anext_re_sq = multiplyRational(a_next.re, a_next.re);
-      const anext_im_sq = multiplyRational(a_next.im, a_next.im);
-      const anext_mag_sq = addRational(anext_re_sq, anext_im_sq);
+      const anext_mag_sq = a_next.magnitudeSquaredRational();
       
       // |q_n|^4 * |a_{n+1}|^2
       const product = multiplyRational(qn_mag_quat, anext_mag_sq);

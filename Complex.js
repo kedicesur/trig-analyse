@@ -138,6 +138,16 @@ class Complex {
   }
 
   /**
+   * Calculate exact rational magnitude squared (|z|^2 = Re^2 + Im^2)
+   * @returns {{n: bigint, d: bigint}} Rational magnitude squared
+   */
+  magnitudeSquaredRational() {
+    const reSq = multiplyRational(this.re, this.re);
+    const imSq = multiplyRational(this.im, this.im);
+    return addRational(reSq, imSq);
+  }
+
+  /**
    * Calculate magnitude (convert to float for sqrt)
    * @returns {number} Magnitude
    */
