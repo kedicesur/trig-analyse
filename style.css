@@ -386,6 +386,16 @@ canvas {
     color: #2c3e50;
 }
 
+/* Style for mathematical limit highlight */
+.point-item.math-limit {
+    border: 2px solid #f39c12;
+    background-color: #fff9e6;
+    font-weight: bold;
+    box-shadow: 0 0 5px rgba(243, 156, 18, 0.4);
+    z-index: 10;
+    position: relative;
+}
+
 .convergent-info {
     display: flex;
     flex-wrap: wrap;

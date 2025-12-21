@@ -969,7 +969,7 @@ export class ComplexVisualizerUI {
     this.ctx.fillText('JS', point.x, point.y - 15);
   }
 
-  updateResultsGrid(coefficients, baseConvergents, finalConvergents, redundantStartIndex) {
+  updateResultsGrid(coefficients, baseConvergents, finalConvergents, redundantStartIndex, mathLimitIndex) {
     // const gridContainer = document.querySelector('.coefficients-convergents-grid');
     
     // Clear existing content but keep structure if possible, or rebuild
@@ -995,7 +995,8 @@ export class ComplexVisualizerUI {
 
     for (let i = 0; i < count; i++) {
         const isRedundant = redundantStartIndex >= 0 && i >= redundantStartIndex;
-        const className = `point-item ${isRedundant ? 'redundant' : 'valid'}`;
+        const isMathLimit = i === mathLimitIndex;
+        const className = `point-item ${isRedundant ? 'redundant' : 'valid'} ${isMathLimit ? 'math-limit' : ''}`;
 
         // 1. Index
         const indexEl = document.createElement('div');
@@ -1118,8 +1119,8 @@ export class ComplexVisualizerUI {
     const coefficients = generateCoefficients(Number(minimalRational.d), this.COEFFICIENT_COUNT);
 
     // Calculate convergents (PASSING THE EXACT BIGINT RATIONAL)
-    // Now returns { baseConvergents, finalConvergents } with rational BigInt Complex numbers
-    const { baseConvergents, finalConvergents: allConvergents } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
+    // Now returns { baseConvergents, finalConvergents, mathLimitIndex } with rational BigInt Complex numbers
+    const { baseConvergents, finalConvergents: allConvergents, mathLimitIndex } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
       // NEW: Check both base AND final convergents, only at significant (imaginary) coefficient indices
@@ -1137,7 +1138,7 @@ export class ComplexVisualizerUI {
       }
 
       // Update grid display with all columns
-      this.updateResultsGrid(coefficients, baseConvergents, allConvergents, redundantStartIndex);
+      this.updateResultsGrid(coefficients, baseConvergents, allConvergents, redundantStartIndex, mathLimitIndex);
 
       // Draw the scene
       this.drawScene();

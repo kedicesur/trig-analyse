@@ -2,6 +2,7 @@
 
 import Complex from './Complex.js';
 import { toRational } from './Utils.js';
+import { addRational, multiplyRational } from './RationalBigInt.js';
 
 /**
  * Generates the first k CSCF coefficients for e^(i*1/n) where n > 1.
@@ -72,17 +73,24 @@ export function generateCoefficients(n, k) {
 /**
  * Computes ALL convergents (not just the final one) for given coefficients.
  * Uses rational BigInt arithmetic throughout
+ * Includes mathematical stopping criterion: |q_n|^4 * |a_{n+1}|^2 > |n|^2 * 2^106
  * @param {Complex[]} coefficients - Array of coefficients
- * @returns {Complex[]} Array of convergents at each step
+ * @param {bigint} numerator - The numerator of the rational angle (to account for error magnification)
+ * @returns {Object} { convergents: Complex[], mathLimitIndex: number }
  */
-export function computeAllConvergents(coefficients) {
+export function computeAllConvergents(coefficients, numerator = 1n) {
   const convergents = [];
+  let mathLimitIndex = -1;
+  const nAbs = numerator < 0n ? -numerator : numerator;
+  const nSq = nAbs * nAbs;
+  const baseLimit = 2n ** 106n; 
+  const LIMIT = nSq > 0n ? baseLimit * nSq : baseLimit;
   
-  if (coefficients.length === 0) return convergents;
+  if (coefficients.length === 0) return { convergents, mathLimitIndex };
   
   if (coefficients.length === 1) {
     convergents.push(coefficients[0]);
-    return convergents;
+    return { convergents, mathLimitIndex };
   }
 
   let p_prev_prev = Complex.ZERO;
@@ -103,6 +111,34 @@ export function computeAllConvergents(coefficients) {
     const convergent = p_n.divide(q_n);
     convergents.push(convergent);
 
+    // Check mathematical stopping criterion
+    // |q_n|^4 * |a_{n+1}|^2 > 2^106
+    if (mathLimitIndex === -1 && i < coefficients.length - 1) {
+      const a_next = coefficients[i+1];
+      
+      // |q_n|^2 = q_n.re^2 + q_n.im^2
+      const qn_re_sq = multiplyRational(q_n.re, q_n.re);
+      const qn_im_sq = multiplyRational(q_n.im, q_n.im);
+      const qn_mag_sq = addRational(qn_re_sq, qn_im_sq);
+      
+      // |q_n|^4 = qn_mag_sq * qn_mag_sq
+      const qn_mag_quat = multiplyRational(qn_mag_sq, qn_mag_sq);
+      
+      // |a_{n+1}|^2 = a_next.re^2 + a_next.im^2
+      const anext_re_sq = multiplyRational(a_next.re, a_next.re);
+      const anext_im_sq = multiplyRational(a_next.im, a_next.im);
+      const anext_mag_sq = addRational(anext_re_sq, anext_im_sq);
+      
+      // |q_n|^4 * |a_{n+1}|^2
+      const product = multiplyRational(qn_mag_quat, anext_mag_sq);
+      
+      // Compare with LIMIT
+      // product.n / product.d > LIMIT  => product.n > LIMIT * product.d
+      if (product.n > LIMIT * product.d) {
+        mathLimitIndex = i;
+      }
+    }
+
     // Update for next iteration
     p_prev_prev = p_prev;
     p_prev = p_n;
@@ -110,7 +146,7 @@ export function computeAllConvergents(coefficients) {
     q_prev = q_n;
   }
 
-  return convergents;
+  return { convergents, mathLimitIndex };
 }
 
 /**
@@ -150,7 +186,7 @@ function powComplexStable(base, exponent) {
  * @param {number} angle - Angle in radians
  * @param {number} terms - Number of terms to use
  * @param {Object} [exactRational] - Optional {n, d} object with BigInt values
- * @returns {Object} { baseConvergents: Complex[], finalConvergents: Complex[] }
+ * @returns {Object} { baseConvergents: Complex[], finalConvergents: Complex[], mathLimitIndex: number }
  */
 export function expWithConvergents(angle, terms = 12, exactRational = null) {
   if (typeof angle !== 'number' || isNaN(angle)) {
@@ -160,7 +196,8 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
   if (angle === 0) {
     return { 
         baseConvergents: [Complex.ONE], 
-        finalConvergents: [Complex.ONE] 
+        finalConvergents: [Complex.ONE],
+        mathLimitIndex: -1
     };
   }
 
@@ -186,12 +223,12 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
   const coefficients = generateCoefficients(denominatorNum, terms);
   
   // Get all convergents for e^(i/denominator)
-  const baseConvergents = computeAllConvergents(coefficients);
+  const { convergents: baseConvergents, mathLimitIndex } = computeAllConvergents(coefficients, numerator);
   
   // Raise each convergent to the numerator to get approximations for e^(i * numerator/denominator)
   const finalConvergents = baseConvergents.map(conv => powComplexStable(conv, numerator));
   
-  return { baseConvergents, finalConvergents };
+  return { baseConvergents, finalConvergents, mathLimitIndex };
 }
 
 /**
