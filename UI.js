@@ -87,9 +87,6 @@ export class ComplexVisualizerUI {
 
     // Store last generated angle for comparison
     this.lastGeneratedAngle = null;
-    
-    // Store the "True" reference angle (using Math.PI) for comparison
-    this.trueReferenceAngle = null;
 
     // Cache for the exact minimal rational fraction to avoid redundant recalculation
     this.cachedExactRational = null;
@@ -538,6 +535,18 @@ export class ComplexVisualizerUI {
     return { real, imag };
   }
 
+  /**
+   * Get the true reference angle from cached rational
+   * Computes: Number(n) / Number(d)
+   * @returns {number|null} The reference angle or null if not available
+   */
+  getTrueReferenceAngle() {
+    if (!this.cachedExactRational || this.cachedExactRational.d === 0n) {
+      return null;
+    }
+    return Number(this.cachedExactRational.n) / Number(this.cachedExactRational.d);
+  }
+
   drawVisibleUnitCircle() {
     // Only draw unit circle if it intersects the current viewport
     this.ctx.strokeStyle = '#e74c3c';
@@ -872,10 +881,11 @@ export class ComplexVisualizerUI {
   }
 
   drawJSComparison() {
-    if (this.trueReferenceAngle === null) return;
+    const refAngle = this.getTrueReferenceAngle();
+    if (refAngle === null) return;
 
-    const jsRe = Math.cos(this.trueReferenceAngle);
-    const jsIm = Math.sin(this.trueReferenceAngle);
+    const jsRe = Math.cos(refAngle);
+    const jsIm = Math.sin(refAngle);
     const point = this.mapToCanvas(jsRe, jsIm);
 
     // Draw point
@@ -974,6 +984,24 @@ export class ComplexVisualizerUI {
     }
   }
 
+  displayIterationMetrics(iterationMetrics) {
+    const summaryContainer = document.getElementById('iterationMetricsSummary');
+    if (!summaryContainer) return;
+
+    // Display the metrics summary
+    const convergentIterValue = document.getElementById('convergentIterationsValue');
+    const exponentiationIterValue = document.getElementById('exponentiationIterationsValue');
+    const totalIterValue = document.getElementById('totalIterationsValue');
+
+    if (convergentIterValue && exponentiationIterValue && totalIterValue) {
+      convergentIterValue.textContent = iterationMetrics.convergentIterations;
+      exponentiationIterValue.textContent = iterationMetrics.exponentIterations;
+      totalIterValue.textContent = iterationMetrics.totalIterations;
+      
+      summaryContainer.style.display = 'block';
+    }
+  }
+
   generateAndPlot() {
     const angle = parseFloat(this.angleInput.value);
 
@@ -1020,36 +1048,18 @@ export class ComplexVisualizerUI {
     }
     this.lastGeneratedAngle = angleForCalculation;
     
-    // -------------------------------------------------------------------------
-    // CALCULATE TRUE REFERENCE ANGLE (Math.PI)
-    // -------------------------------------------------------------------------
-    // Use the direct input values from the UI for the most accurate reference
-    const inputN = parseFloat(this.numeratorInput.value);
-    const inputD = parseFloat(this.denominatorInput.value);
-    const piStr = this.piDropdown.value;
-
-    if (this.inputSource === 'decimal') {
-        // If the user entered a decimal, THAT is the source of truth
-        this.trueReferenceAngle = angle;
-    } else if (!isNaN(inputN) && !isNaN(inputD) && inputD !== 0) {
-        // If the user entered a rational, use it
-        if (piStr === '1') {
-             this.trueReferenceAngle = inputN / inputD;
-        } else {
-             this.trueReferenceAngle = (inputN / inputD) * Math.PI;
-        }
-    } else {
-        // Fallback if inputs are invalid (shouldn't happen in normal flow)
-        this.trueReferenceAngle = angleForCalculation;
-    }
-
     // Generate coefficients with fixed count
     // Use the minimal denominator found (convert BigInt to number for coefficient generation)
     const coefficients = generateCoefficients(Number(minimalRational.d), this.COEFFICIENT_COUNT);
 
     // Calculate convergents (PASSING THE EXACT BIGINT RATIONAL)
-    // Now returns { baseConvergents, finalConvergents, mathLimitIndex } with rational BigInt Complex numbers
-    const { baseConvergents, finalConvergents: allConvergents, mathLimitIndex } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
+    // Now returns { baseConvergents, finalConvergents, mathLimitIndex, iterationMetrics } with rational BigInt Complex numbers
+    const { 
+      baseConvergents, 
+      finalConvergents: allConvergents, 
+      mathLimitIndex,
+      iterationMetrics 
+    } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
       // Find where convergents become redundant
       // SIMPLIFIED: Strictly use the mathematical limit index.
@@ -1069,6 +1079,9 @@ export class ComplexVisualizerUI {
 
       // Update grid display with all columns
       this.updateResultsGrid(coefficients, baseConvergents, allConvergents, redundantStartIndex, mathLimitIndex);
+
+      // Display iteration metrics
+      this.displayIterationMetrics(iterationMetrics);
 
       // Draw the scene
       this.drawScene();
@@ -1196,14 +1209,15 @@ export class ComplexVisualizerUI {
   }
 
   zoomToReference() {
-    if (this.currentConvergents.length === 0 || this.trueReferenceAngle === null) {
+    const refAngle = this.getTrueReferenceAngle();
+    if (this.currentConvergents.length === 0 || refAngle === null) {
       alert('Need valid convergents and reference angle to zoom.');
       return;
     }
 
     // Get the Javascript reference point (True value)
-    const refRe = Math.cos(this.trueReferenceAngle);
-    const refIm = Math.sin(this.trueReferenceAngle);
+    const refRe = Math.cos(refAngle);
+    const refIm = Math.sin(refAngle);
 
     // Get the last valid convergent
     const lastConv = this.currentConvergents[this.currentConvergents.length - 1].toFloat();
@@ -1263,12 +1277,9 @@ export class ComplexVisualizerUI {
  */
 
   updateTrigComparison(convergent, angle) {
-    // Store the angle for potential reuse (legacy support vs new logic)
-    // Note: 'angle' passed here is usually the index-based angle or similar
-    // BUT we want to compare against the TRUE Reference Angle (Math.PI based)
-    
-    // Get JavaScript's trigonometric values using TRUE REFERENCE
-    const refAngle = this.trueReferenceAngle !== null ? this.trueReferenceAngle : angle;
+    // Get JavaScript's trigonometric values using TRUE REFERENCE from cached rational
+    const refAngle = this.getTrueReferenceAngle();
+    if (refAngle === null) return;
     
     const jsCos = Math.cos(refAngle);
     const jsSin = Math.sin(refAngle);
@@ -1287,11 +1298,27 @@ export class ComplexVisualizerUI {
     const convSin = convFloat.im;
     let convTan;
 
-    // Calculate our tangent (handle division by zero)
-    if (Math.abs(convCos) < 1e-15) {
-      convTan = convSin > 0 ? Infinity : -Infinity;
+    // Calculate our tangent using BigInt rational division: imag / real
+    // Check if the real part (cosine) is zero using the rational representation
+    if (convergent.re.n === 0n) {
+      // Real part is zero - tangent is infinite
+      convTan = convergent.im.n > 0n ? Infinity : -Infinity;
     } else {
-      convTan = convSin / convCos;
+      // Perform rational division: im / re
+      // This is equivalent to (im.n / im.d) / (re.n / re.d) = (im.n * re.d) / (im.d * re.n)
+      const tanRational = {
+        n: convergent.im.n * convergent.re.d,
+        d: convergent.im.d * convergent.re.n
+      };
+      
+      // Convert the rational result to decimal
+      // Handle sign correctly for negative denominators
+      if (tanRational.d < 0n) {
+        tanRational.n = -tanRational.n;
+        tanRational.d = -tanRational.d;
+      }
+      
+      convTan = Number(tanRational.n) / Number(tanRational.d);
     }
 
     // Calculate differences

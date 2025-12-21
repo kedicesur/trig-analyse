@@ -91,6 +91,27 @@
             <div id="finalConvergentsList" class="compact-point-list"></div>
           </div>
         </div>
+
+        <div class="iteration-metrics-summary" id="iterationMetricsSummary" style="display: none;">
+          <h3>Iteration Summary</h3>
+          <div class="metrics-row">
+            <div class="metric-item">
+              <span class="metric-label">Convergent Iterations (i):</span>
+              <span class="metric-value" id="convergentIterationsValue">-</span>
+              <span class="metric-description">Iterations to compute convergents until mathematical limit</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Exponentiation Iterations (j):</span>
+              <span class="metric-value" id="exponentiationIterationsValue">-</span>
+              <span class="metric-description">Binary exponentiation steps: ⌈log₂(n)⌉ where n is the numerator</span>
+            </div>
+            <div class="metric-item">
+              <span class="metric-label">Total Iterations (i+j):</span>
+              <span class="metric-value" id="totalIterationsValue">-</span>
+              <span class="metric-description">Combined computational iterations</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="canvas-section">
@@ -200,17 +221,70 @@
             <div id="convergenceStatus" class="indicator-status">Not calculated</div>
           </div>
         </div>
-
-        <div class="info-panel">
-          <h3>Visualization Info</h3>
-          <p>The unit circle is drawn in red. Convergents approach e<sup>iθ</sup> as more coefficients are used.</p>
-          <p>Redundant convergents (marked in red) are excluded from visualization when they stop changing.</p>
-          <p>Drag the canvas to pan, use mouse wheel to zoom.</p>
-          <p>Hover over convergents to see their exact values.</p>
-        </div>
       </div>
 
       <div class="instructions">
+        <h2>How to Use This Visualizer</h2>
+        <ul>
+          <li><strong>Input Angle:</strong> Enter an angle in decimal radians or as a rational multiple of π</li>
+          <li><strong>Select Approximation:</strong> Choose a π approximation from the dropdown (1 gives exact radians)</li>
+          <li><strong>Generate Coefficients:</strong> The system generates coefficients for a complex simple continued fraction based on your angle's denominator</li>
+          <li><strong>View Convergents:</strong> Each convergent (approximation) is calculated using the recurrence relation and shown in the grid</li>
+          <li><strong>Visualize:</strong> The red circle represents the unit circle - convergents should approach it as more terms are computed</li>
+          <li><strong>Final Result:</strong> The final convergent approximates e<sup>iθ</sup> where θ is your input angle</li>
+        </ul>
+
+        <h2>Canvas Controls & Visualization</h2>
+        <ul>
+          <li><strong>Pan:</strong> Drag the canvas with your mouse to move around the complex plane</li>
+          <li><strong>Zoom:</strong> Use your mouse wheel to zoom in/out (preserves center point under cursor)</li>
+          <li><strong>Focus Last:</strong> Click "Zoom to Last Convergent" to zoom to the final convergent</li>
+          <li><strong>Focus Reference:</strong> Click "Zoom to Reference" to center on the exact e<sup>iθ</sup> point</li>
+          <li><strong>Reset:</strong> Click "Reset View" to return to the default view</li>
+          <li><strong>Hover Details:</strong> Hover over convergent points to see their exact complex values</li>
+        </ul>
+
+        <h2>Understanding the Results Grid</h2>
+        <ul>
+          <li><strong>Index (i):</strong> The iteration number, showing which step of the continued fraction this is</li>
+          <li><strong>Coefficients:</strong> The complex coefficient a<sub>i</sub> in the continued fraction recurrence a<sub>0</sub> + 1/(a<sub>1</sub> + 1/(a<sub>2</sub> + ...))</li>
+          <li><strong>Base Convergents:</strong> The rational approximations to e<sup>i/q</sup> (numerator/denominator of the continued fraction)</li>
+          <li><strong>Final Convergents:</strong> Result of raising base convergents to the p-th power (where p/q is your angle), giving e<sup>ip/q</sup></li>
+          <li><strong>Green Highlighted Row:</strong> Indicates the mathematical stopping point where the convergence criterion is met: |q<sub>n</sub>|<sup>4</sup> × |a<sub>n+1</sub>|<sup>2</sup> > |p|<sup>2</sup> × 2<sup>106</sup></li>
+          <li><strong>Light Red Rows:</strong> Redundant convergents beyond the mathematical limit (these don't improve approximation and are excluded from visualization)</li>
+        </ul>
+
+        <h2>Trigonometric Comparison</h2>
+        <ul>
+          <li><strong>Our Convergent:</strong> The cos/sin/tan values derived from our continued fraction approximation</li>
+          <li><strong>JavaScript Math:</strong> Reference values from JavaScript's native Math library</li>
+          <li><strong>Difference:</strong> The absolute error between our approximation and the reference</li>
+          <li><strong>Convergence Bar:</strong> Visual indicator of approximation quality (green = better)</li>
+        </ul>
+
+        <h2>Iteration Metrics</h2>
+        <ul>
+          <li><strong>Convergent Iterations (i):</strong> Number of steps required to compute convergents until the mathematical stopping criterion is met</li>
+          <li><strong>Exponentiation Iterations (j):</strong> Binary exponentiation complexity: ⌈log₂(|p|)⌉ where p is the numerator (represents the bit-length of the exponent)</li>
+          <li><strong>Total Iterations (i+j):</strong> Combined computational effort showing the total number of significant operations</li>
+        </ul>
+
+        <h2>Color Guide</h2>
+        <ul>
+          <li><strong>Light Blue Points:</strong> Valid convergents within the convergence domain</li>
+          <li><strong>Green Border with Light Green Background:</strong> Mathematical limit point - this is the optimal stopping point for computation</li>
+          <li><strong>Light Red Points:</strong> Redundant convergents beyond the mathematical limit (not plotted on canvas)</li>
+        </ul>
+
+        <h2>Tips for Exploration</h2>
+        <ul>
+          <li>Try small denominators (like π/2, π/3, π/4) to see fast convergence</li>
+          <li>Compare different π approximations (22/7 vs 355/113) to see their accuracy differences</li>
+          <li>Use "Generate Random Angle" to discover interesting patterns</li>
+          <li>Zoom in to see how convergents spiral toward the unit circle</li>
+          <li>Check the iteration metrics to understand computational efficiency</li>
+        </ul>
+
         <h2>Mathematical Discovery</h2>
         <div class="discovery-note">
           <p><strong>Key Insights:</strong> This method provides unprecedented efficiency for computing trigonometric

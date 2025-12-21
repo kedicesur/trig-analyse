@@ -70,7 +70,7 @@ h1 {
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    min-height: 800px; /* Match input-section */
+    min-height: 1120px; /* Adjusted to fit grid (720px) + metrics (80px) + spacing + canvas + trig comparison */
     display: flex;
     flex-direction: column;
 }
@@ -288,10 +288,9 @@ canvas {
     display: grid;
     grid-template-columns: 5% 15% 38% 38%;
     gap: 10px;
-    margin-top: 25px;
-    min-height: 400px; /* Minimum height to show ~12 items comfortably */
-    height: auto; /* Let it grow with content */
-    flex: 1; /* Take available space in flex container */
+    margin-top: 15px;
+    margin-bottom: 15px;
+    height: 720px; /* Fixed height for exactly 24 items with small padding */
 }
 
 .grid-column {
@@ -300,7 +299,7 @@ canvas {
     height: 100%; /* Fill parent height */
     display: flex;
     flex-direction: column;
-    min-height: 350px; /* Ensure columns have minimum height */
+    min-height: 0; /* Allow flex child to shrink */
 }
 
 .grid-column h3 {
@@ -318,7 +317,7 @@ canvas {
     flex: 1;
     overflow-y: auto;
     padding-right: 3px; /* Space for scrollbar */
-    min-height: 300px; /* Important for flex child scrolling */
+    min-height: 0; /* Allow flex child to shrink */
     max-height: none; /* Remove max-height constraint */
     line-height: 1rem;
     scrollbar-width: thin;
@@ -388,10 +387,10 @@ canvas {
 
 /* Style for mathematical limit highlight */
 .point-item.math-limit {
-    border: 2px solid #f39c12;
-    background-color: #fff9e6;
+    border: 2px solid #27ae60;
+    background-color: #e8f8f5;
     font-weight: bold;
-    box-shadow: 0 0 5px rgba(243, 156, 18, 0.4);
+    box-shadow: 0 0 5px rgba(39, 174, 96, 0.4);
     z-index: 10;
     position: relative;
 }
@@ -414,11 +413,14 @@ canvas {
 
 /* Trigonometric Comparison Section - COMPACT VERSION */
 .trig-comparison {
-    margin-top: 25px;
+    margin-top: 15px;
     padding: 15px;
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .trig-comparison h3 {
@@ -677,16 +679,7 @@ canvas {
 } */
 
 .info-panel {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    border-left: 4px solid #3498db;
-}
-
-.info-panel h3 {
-    color: #2c3e50;
-    margin-bottom: 10px;
+    display: none;
 }
 
 .instructions {
@@ -1143,4 +1136,58 @@ footer {
     align-items: center;
     gap: 12px;
     width: 100%;
+}
+
+/* Iteration Metrics Summary */
+.iteration-metrics-summary {
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #e8f4fc 0%, #d5ebf5 100%);
+    border-left: 5px solid #3498db;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.2);
+}
+
+.iteration-metrics-summary h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.metrics-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.metric-item {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 4px solid #27ae60;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.metric-label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 13px;
+}
+
+.metric-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #3498db;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.metric-description {
+    font-size: 11px;
+    color: #7f8c8d;
+    font-style: italic;
 }

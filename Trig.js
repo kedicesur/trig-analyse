@@ -179,11 +179,20 @@ function powComplexStable(base, exponent) {
 
 /**
  * Main function to calculate e^(i*angle) using continued fractions
- * Returns both base and final convergents
+ * Returns both base and final convergents with iteration tracking
  * @param {number} angle - Angle in radians
  * @param {number} terms - Number of terms to use
  * @param {Object} [exactRational] - Optional {n, d} object with BigInt values
- * @returns {Object} { baseConvergents: Complex[], finalConvergents: Complex[], mathLimitIndex: number }
+ * @returns {Object} { 
+ *   baseConvergents: Complex[], 
+ *   finalConvergents: Complex[], 
+ *   mathLimitIndex: number,
+ *   iterationMetrics: { 
+ *     convergentIterations: number,  // i: iterations to compute convergents
+ *     exponentIterations: number,    // j: Math.ceil(log2(n)) for exponentiation
+ *     totalIterations: number        // i + j: total iterations
+ *   }
+ * }
  */
 export function expWithConvergents(angle, terms = 12, exactRational = null) {
   if (typeof angle !== 'number' || isNaN(angle)) {
@@ -194,7 +203,12 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
     return { 
         baseConvergents: [Complex.ONE], 
         finalConvergents: [Complex.ONE],
-        mathLimitIndex: -1
+        mathLimitIndex: -1,
+        iterationMetrics: {
+          convergentIterations: 0,
+          exponentIterations: 0,
+          totalIterations: 0
+        }
     };
   }
 
@@ -222,10 +236,30 @@ export function expWithConvergents(angle, terms = 12, exactRational = null) {
   // Get all convergents for e^(i/denominator)
   const { convergents: baseConvergents, mathLimitIndex } = computeAllConvergents(coefficients, numerator);
   
+  // i: iteration count for convergent computation (up to mathLimitIndex or length of convergents)
+  const convergentIterations = mathLimitIndex >= 0 ? mathLimitIndex + 1 : baseConvergents.length;
+  
+  // j: iteration count for binary exponentiation: Math.ceil(log2(n))
+  // This accounts for the number of bit operations needed to raise to the numerator power
+  const absNumerator = numerator < 0n ? -numerator : numerator;
+  const exponentIterations = absNumerator === 0n ? 0 : Math.ceil(Math.log2(Number(absNumerator)));
+  
+  // Total iterations
+  const totalIterations = convergentIterations + exponentIterations;
+  
   // Raise each convergent to the numerator to get approximations for e^(i * numerator/denominator)
   const finalConvergents = baseConvergents.map(conv => powComplexStable(conv, numerator));
   
-  return { baseConvergents, finalConvergents, mathLimitIndex };
+  return { 
+    baseConvergents, 
+    finalConvergents, 
+    mathLimitIndex,
+    iterationMetrics: {
+      convergentIterations,
+      exponentIterations,
+      totalIterations
+    }
+  };
 }
 
 /**
