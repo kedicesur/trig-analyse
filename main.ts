@@ -1,7 +1,7 @@
 import { serveDir } from "@std/http/file-server";
 import { normalize } from "@std/path";
 
-Deno.serve({ port: 8080 }, (req) => {
+Deno.serve(req => {
   const url = new URL(req.url);
   const rawPath = url.pathname;
 
