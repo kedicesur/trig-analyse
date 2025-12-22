@@ -1,4 +1,3 @@
-// UI.js - User interface and visualization logic
 
 import { generateCoefficients, expWithConvergents } from './Trig.js';
 import { toRational
@@ -11,7 +10,6 @@ import { toRational
 
 export class ComplexVisualizerUI {
   constructor() {
-    // DOM elements
     this.angleInput = document.getElementById('angleInput');
     this.numeratorInput = document.getElementById('numeratorInput');
     this.denominatorInput = document.getElementById('denominatorInput');
@@ -28,10 +26,8 @@ export class ComplexVisualizerUI {
     this.distanceToUnitCircleElement = document.getElementById('distanceToUnitCircle');
     this.headerFormula = document.getElementById('headerFormula');
 
-    // Canvas context
     this.ctx = this.complexCanvas.getContext('2d');
 
-    // View state for zooming and panning with fixed bounds [-1.2, 1.2]
     this.viewState = {
       centerX: 0,
       centerY: 0,
@@ -43,33 +39,25 @@ export class ComplexVisualizerUI {
       maxBound: 1.2
     };
 
-    // Number of coefficients/convergents to generate
     this.COEFFICIENT_COUNT = 24;
 
-    // Current convergents and animation state
     this.currentConvergents = [];
     this.currentStep = 0;
     this.animationInterval = null;
     this.isAnimating = false;
-    // All convergents (including redundant) and redundancy metadata
     this.allConvergents = [];
     this.redundantStartIndex = -1;
     this.REDUNDANT_DISPLAY_COUNT = 4; // how many redundant points to show
     
-    // Track input source for correct reference calculation
-    // 'decimal' or 'rational'
     this.inputSource = 'decimal';
 
-    // Tooltip state
     this.tooltip = null;
     this.hoveredConvergent = null;
     this.tooltipTimeout = null;
 
-    // Input synchronization flags
     this.isUpdatingFromDecimal = false;
     this.isUpdatingFromRational = false;
 
-    // Trigonometric comparison elements
     this.convergentCosElement = document.getElementById('convergentCos');
     this.jsCosElement = document.getElementById('jsCos');
     this.diffCosElement = document.getElementById('diffCos');
@@ -85,18 +73,14 @@ export class ComplexVisualizerUI {
     this.convergenceBarElement = document.getElementById('convergenceBar');
     this.convergenceStatusElement = document.getElementById('convergenceStatus');
 
-    // Store last generated angle for comparison
     this.lastGeneratedAngle = null;
 
-    // Cache for the exact minimal rational fraction to avoid redundant recalculation
     this.cachedExactRational = null;
 
-    // Initialize
     this.init();
 }
 
   init() {
-    // Set up event listeners
     this.plotButton.addEventListener('click', () => this.generateAndPlot());
     this.generateRandomButton.addEventListener('click', () => {
       this.inputSource = 'decimal';
@@ -106,30 +90,22 @@ export class ComplexVisualizerUI {
     this.zoomToLastButton.addEventListener('click', () => this.zoomToLastConvergent());
     this.zoomToReferenceButton.addEventListener('click', () => this.zoomToReference());
 
-    // Set up input synchronization event listeners
     this.setupInputEvents();
 
-    // Set up canvas event listeners for panning and zooming
     this.setupCanvasEvents();
 
-    // Create tooltip element
     this.createTooltip();
 
-    // Initial resize and draw
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
 
-    // Initial plot
-    // Perform immediately but within a frame to ensure CSS/Layout is ready
     requestAnimationFrame(() => {
-      // Update rational input from initial decimal value
       this.updateRationalFromDecimal();
       this.generateAndPlot();
     });
   }
 
   setupInputEvents() {
-    // Decimal input -> update rational
     this.angleInput.addEventListener('input', () => {
       if (!this.isUpdatingFromRational) {
         this.inputSource = 'decimal';
@@ -139,7 +115,6 @@ export class ComplexVisualizerUI {
       }
     });
 
-    // Rational inputs -> update decimal
     this.numeratorInput.addEventListener('input', () => {
       if (!this.isUpdatingFromDecimal) {
         this.inputSource = 'rational';
@@ -158,9 +133,7 @@ export class ComplexVisualizerUI {
       }
     });
 
-    // Pi dropdown changes -> update decimal from rational
     this.piDropdown.addEventListener('change', () => {
-      // When π changes, we need to update decimal from rational (keeping n/d constant)
       if (!this.isUpdatingFromDecimal) {
         this.inputSource = 'rational';
         this.isUpdatingFromRational = true;
@@ -180,20 +153,16 @@ export class ComplexVisualizerUI {
 
     this.canvasContainer.addEventListener('mousemove', (e) => {
       if (!this.viewState.isDragging) {
-        // Handle mouseover for tooltips
         this.handleMouseMove(e);
       } else {
         const deltaX = e.clientX - this.viewState.lastMouseX;
         const deltaY = e.clientY - this.viewState.lastMouseY;
 
-        // Convert pixel movement to complex plane movement
         const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / 2.4); // 2.4 = maxBound - minBound
 
-        // Update center with bounds checking
         const newCenterX = this.viewState.centerX + deltaX / scaleFactor;
         const newCenterY = this.viewState.centerY - deltaY / scaleFactor;
 
-        // Apply bounds to keep within [-1.2, 1.2] range
         this.viewState.centerX = newCenterX;
         this.viewState.centerY = newCenterY;
 
@@ -212,38 +181,28 @@ export class ComplexVisualizerUI {
     this.canvasContainer.addEventListener('mouseleave', () => {
       this.viewState.isDragging = false;
       this.canvasContainer.style.cursor = 'move';
-      // Hide tooltip when mouse leaves canvas
       this.hideTooltip();
     });
 
-    // Mouse wheel zoom with bounds
     this.canvasContainer.addEventListener('wheel', (e) => {
       e.preventDefault();
 
-      // Get mouse position relative to canvas
       const rect = this.complexCanvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Get complex coordinates at mouse position before zoom
       const complexBeforeZoom = this.mapFromCanvas(mouseX, mouseY);
 
-      // Determine zoom factor based on wheel direction
       const zoomFactor = 1.2;
       if (e.deltaY < 0) {
-        // Zoom in
         this.viewState.scale *= zoomFactor;
       } else {
-        // Zoom out
         this.viewState.scale /= zoomFactor;
-        // Dont zoom out from initial scale
         if (this.viewState.scale < 1) this.viewState.scale = 1;
       }
 
-      // Get complex coordinates at mouse position after zoom (with same center)
       const complexAfterZoom = this.mapFromCanvas(mouseX, mouseY);
 
-      // Adjust center to keep the point under the mouse stationary
       const deltaX = complexBeforeZoom.real - complexAfterZoom.real;
       const deltaY = complexBeforeZoom.imag - complexAfterZoom.imag;
 
@@ -255,7 +214,6 @@ export class ComplexVisualizerUI {
   }
 
 
-  // Convert π string to numeric value
   parsePiValue(piStr) {
     if (piStr === '1') return 1;
     if (piStr.includes('/')) {
@@ -265,7 +223,6 @@ export class ComplexVisualizerUI {
     return parseFloat(piStr);
   }
 
-  // Update rational input from decimal
   updateRationalFromDecimal() {
     const decimal = parseFloat(this.angleInput.value);
     if (isNaN(decimal)) return;
@@ -273,31 +230,22 @@ export class ComplexVisualizerUI {
     const piStr = this.piDropdown.value;
     const piValue = this.parsePiValue(piStr);
 
-    // If π = 1, angleWithoutPi = decimal
-    // Otherwise, angleWithoutPi = decimal / π
     const angleWithoutPi = decimal / piValue;
 
-    // Convert to rational
     const rational = toRational(angleWithoutPi);
 
-    // Set flag to prevent circular updates
     this.isUpdatingFromDecimal = true;
     
-    // Update rational inputs
     this.numeratorInput.value = rational.n;
     this.denominatorInput.value = rational.d;
     
     this.isUpdatingFromDecimal = false;
     
-    // Cache the exact rational form of the FULL decimal angle as BigInt
-    // Since we started with a decimal, we convert THAT to rational
     this.cachedExactRational = toBigIntRational(decimal);
 
-    // Update the visual formula in the header
     this.updateHeaderFormula();
   }
 
-  // Update decimal input from rational
   updateDecimalFromRational() {
     const numerator = parseFloat(this.numeratorInput.value);
     const denominator = parseFloat(this.denominatorInput.value);
@@ -323,27 +271,18 @@ export class ComplexVisualizerUI {
         piDen = 1;
     }
 
-    // Calculate decimal: (numerator * piNum) / (denominator * piDen)
-    // This order of operations (multiply then divide) is critical to avoid
-    // intermediate floating point rounding errors that confuse toRational().
     const combinedNumerator = numerator * piNum;
     const combinedDenominator = denominator * piDen;
     const decimal = combinedNumerator / combinedDenominator;
 
-    // Set flag to prevent circular updates
     this.isUpdatingFromRational = true;
     
-    // Update decimal input
     this.angleInput.value = decimal;
     
     this.isUpdatingFromRational = false;
     
-    // Cache the exact minimal rational fraction as BigInt directly from the clean float
-    // This enables the solver to use the precise fraction (e.g. 111/53) instead 
-    // of a noisy one derived from the decimal later.
     this.cachedExactRational = toBigIntRational(decimal);
 
-    // Update the visual formula in the header
     this.updateHeaderFormula();
   }
 
@@ -353,7 +292,6 @@ export class ComplexVisualizerUI {
     this.tooltip.className = 'convergent-tooltip';
     this.tooltip.style.display = 'none';
 
-    // Ensure tooltip is properly positioned within the container
     this.tooltip.style.position = 'absolute';
     this.tooltip.style.zIndex = '1000';
 
@@ -365,7 +303,6 @@ export class ComplexVisualizerUI {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Check if mouse is near any convergent point
     this.hoveredConvergent = null;
     const hoverRadius = 20; // pixels
 
@@ -394,7 +331,6 @@ export class ComplexVisualizerUI {
       }
     }
 
-    // Show or hide tooltip based on hover state
     if (this.hoveredConvergent) {
       this.showTooltip();
     } else {
@@ -408,10 +344,8 @@ export class ComplexVisualizerUI {
     const conv = this.hoveredConvergent.convergent;
     const index = this.hoveredConvergent.index;
 
-    // Convert to float for display
     const convFloat = conv.toFloat();
     
-    // Format content
     const realStr = convFloat.re.toFixed(16).replace(/\.?0+$/, '');
     const imagStr = Math.abs(convFloat.im).toFixed(16).replace(/\.?0+$/, '');
     const sign = convFloat.im >= 0 ? '+' : '-';
@@ -436,33 +370,21 @@ export class ComplexVisualizerUI {
     const tooltipWidth = this.tooltip.offsetWidth;
     const tooltipHeight = this.tooltip.offsetHeight;
 
-    // Simple rule: 
-    // - If convergent is on left half, show tooltip to the right
-    // - If convergent is on right half, show tooltip to the left
-    // - If convergent is on top half, show tooltip below
-    // - If convergent is on bottom half, show tooltip above
 
-    // Horizontal positioning
     let posX;
     if (convPoint.x < containerWidth / 2) {
-      // Convergent on left → tooltip on right
       posX = convPoint.x + 15;
     } else {
-      // Convergent on right → tooltip on left
       posX = convPoint.x - tooltipWidth - 15;
     }
 
-    // Vertical positioning
     let posY;
     if (convPoint.y < containerHeight / 2) {
-      // Convergent on top → tooltip below
       posY = convPoint.y + 15;
     } else {
-      // Convergent on bottom → tooltip above
       posY = convPoint.y - tooltipHeight - 15;
     }
 
-    // Clamp to container (prevents going outside)
     posX = Math.max(10, Math.min(containerWidth - tooltipWidth - 10, posX));
     posY = Math.max(10, Math.min(containerHeight - tooltipHeight - 10, posY));
 
@@ -486,13 +408,10 @@ export class ComplexVisualizerUI {
   }
 
   resizeCanvas() {
-    // Critical: Match canvas drawing buffer to CSS display size
-    // Prevents blurry rendering when CSS scales the canvas
     const container = this.canvasContainer;
     const displayWidth = container.clientWidth;
     const displayHeight = container.clientHeight;
 
-    // Only update if size actually changed
     if (this.complexCanvas.width !== displayWidth || this.complexCanvas.height !== displayHeight) {
       this.complexCanvas.width = displayWidth;
       this.complexCanvas.height = displayHeight;
@@ -500,27 +419,21 @@ export class ComplexVisualizerUI {
     }
   }
 
-  // Map complex coordinates to canvas coordinates with fixed bounds [-1.2, 1.2]
   mapToCanvas(real, imag) {
-    // Calculate scale factor based on canvas size and bounds
     const canvasSize = this.complexCanvas.width; // Use width since it's square
     const boundsRange = 2.4; // 1.2 - (-1.2)
 
-    // Scale to fit bounds in canvas
     const scaleFactor = (canvasSize / boundsRange) * this.viewState.scale;
 
-    // Center of canvas
     const centerX = canvasSize / 2;
     const centerY = canvasSize / 2;
 
-    // Apply transformation with center offset
     const x = centerX + (real + this.viewState.centerX) * scaleFactor;
     const y = centerY - (imag + this.viewState.centerY) * scaleFactor;
 
     return { x, y };
   }
 
-  // Map canvas coordinates to complex coordinates
   mapFromCanvas(x, y) {
     const canvasSize = this.complexCanvas.width;
     const boundsRange = 2.4;
@@ -535,11 +448,6 @@ export class ComplexVisualizerUI {
     return { real, imag };
   }
 
-  /**
-   * Get the true reference angle from cached rational
-   * Computes: Number(n) / Number(d)
-   * @returns {number|null} The reference angle or null if not available
-   */
   getTrueReferenceAngle() {
     if (!this.cachedExactRational || this.cachedExactRational.d === 0n) {
       return null;
@@ -548,12 +456,10 @@ export class ComplexVisualizerUI {
   }
 
   drawVisibleUnitCircle() {
-    // Only draw unit circle if it intersects the current viewport
     this.ctx.strokeStyle = '#e74c3c';
     this.ctx.lineWidth = 2;
     this.ctx.setLineDash([5, 5]);
 
-    // Get viewport bounds
     const topLeft = this.mapFromCanvas(0, 0);
     const bottomRight = this.mapFromCanvas(this.complexCanvas.width, this.complexCanvas.height);
 
@@ -564,7 +470,6 @@ export class ComplexVisualizerUI {
       maxImag: Math.max(topLeft.imag, bottomRight.imag)
     };
 
-    // Quick check: Is the unit circle possibly visible?
     const circleRadius = 1;
     const circleVisible =
       viewport.minReal <= circleRadius && viewport.maxReal >= -circleRadius &&
@@ -575,8 +480,6 @@ export class ComplexVisualizerUI {
       return;
     }
 
-    // Determine visible angle range
-    // If origin is in viewport, we might see the full circle
     let startAngle = 0;
     let endAngle = 2 * Math.PI;
 
@@ -585,7 +488,6 @@ export class ComplexVisualizerUI {
       viewport.minImag <= 0 && viewport.maxImag >= 0;
 
     if (!originInViewport) {
-      // Calculate angles from origin to viewport corners
       const corners = [
         { x: viewport.minReal, y: viewport.minImag },
         { x: viewport.minReal, y: viewport.maxImag },
@@ -601,20 +503,17 @@ export class ComplexVisualizerUI {
       startAngle = Math.min(...angles);
       endAngle = Math.max(...angles);
 
-      // If the angle range is very large, just draw full circle
       if (endAngle - startAngle > Math.PI * 1.5) {
         startAngle = 0;
         endAngle = 2 * Math.PI;
       }
     }
 
-    // Draw the visible arc
     this.drawUnitCircleArc(startAngle, endAngle);
     this.ctx.setLineDash([]);
   }
 
   drawUnitCircleArc(startAngle, endAngle) {
-    // Calculate number of segments based on zoom level and arc length
     const angleSpan = endAngle - startAngle;
     const segmentCount = Math.max(32, Math.min(360, Math.floor(angleSpan * 180 / Math.PI * this.viewState.scale)));
 
@@ -640,17 +539,13 @@ export class ComplexVisualizerUI {
   }
 
   drawComplexPlane() {
-    // Clear canvas
     this.ctx.clearRect(0, 0, this.complexCanvas.width, this.complexCanvas.height);
 
-    // Draw background
     this.ctx.fillStyle = '#f8f9fa';
     this.ctx.fillRect(0, 0, this.complexCanvas.width, this.complexCanvas.height);
 
-    // Determine grid spacing (0.2 units for [-1.2, 1.2] range)
     const gridStep = 0.2;
 
-    // Get visible bounds
     const topLeft = this.mapFromCanvas(0, 0);
     const bottomRight = this.mapFromCanvas(this.complexCanvas.width, this.complexCanvas.height);
     const minReal = Math.min(topLeft.real, bottomRight.real);
@@ -658,12 +553,10 @@ export class ComplexVisualizerUI {
     const minImag = Math.min(topLeft.imag, bottomRight.imag);
     const maxImag = Math.max(topLeft.imag, bottomRight.imag);
 
-    // Draw grid lines
     this.ctx.strokeStyle = '#e0e0e0';
     this.ctx.lineWidth = 1;
     this.ctx.setLineDash([]);
 
-    // Vertical grid lines (real axis)
     const firstVerticalLine = Math.ceil(minReal / gridStep) * gridStep;
     for (let real = firstVerticalLine; real <= maxReal; real += gridStep) {
       const pos = this.mapToCanvas(real, 0);
@@ -672,7 +565,6 @@ export class ComplexVisualizerUI {
       this.ctx.lineTo(pos.x, this.complexCanvas.height);
       this.ctx.stroke();
 
-      // Draw label for integer or half-integer values
       if (Math.abs(real) < 0.001) {
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.font = 'bold 12px Roboto';
@@ -686,7 +578,6 @@ export class ComplexVisualizerUI {
       }
     }
 
-    // Horizontal grid lines (imaginary axis)
     const firstHorizontalLine = Math.ceil(minImag / gridStep) * gridStep;
     for (let imag = firstHorizontalLine; imag <= maxImag; imag += gridStep) {
       const pos = this.mapToCanvas(0, imag);
@@ -695,7 +586,6 @@ export class ComplexVisualizerUI {
       this.ctx.lineTo(this.complexCanvas.width, pos.y);
       this.ctx.stroke();
 
-      // Draw label for integer or half-integer values
       if (Math.abs(imag) < 0.001) {
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.font = 'bold 12px Roboto';
@@ -709,25 +599,21 @@ export class ComplexVisualizerUI {
       }
     }
 
-    // Draw axes
     this.ctx.strokeStyle = '#2c3e50';
     this.ctx.lineWidth = 2;
 
-    // Real axis (horizontal)
     const zeroY = this.mapToCanvas(0, 0).y;
     this.ctx.beginPath();
     this.ctx.moveTo(0, zeroY);
     this.ctx.lineTo(this.complexCanvas.width, zeroY);
     this.ctx.stroke();
 
-    // Imaginary axis (vertical)
     const zeroX = this.mapToCanvas(0, 0).x;
     this.ctx.beginPath();
     this.ctx.moveTo(zeroX, 0);
     this.ctx.lineTo(zeroX, this.complexCanvas.height);
     this.ctx.stroke();
 
-    // Draw axis labels
     this.ctx.fillStyle = '#2c3e50';
     this.ctx.font = 'bold 14px Open Sans';
     this.ctx.textAlign = 'left';
@@ -738,7 +624,6 @@ export class ComplexVisualizerUI {
 
     this.drawVisibleUnitCircle();
 
-    // Draw unit circle label
     const center = this.mapToCanvas(0, 0);
     const radiusPoint = this.mapToCanvas(1, 0);
     const radius = Math.abs(radiusPoint.x - center.x);
@@ -751,17 +636,14 @@ export class ComplexVisualizerUI {
   drawConvergents() {
     if (this.currentConvergents.length === 0) return;
 
-    // Draw connecting edges (lines between consecutive convergents)
     this.ctx.strokeStyle = '#3498db';
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
 
-    // Start from the first convergent (C0)
     const firstFloat = this.currentConvergents[0].toFloat();
     const firstPoint = this.mapToCanvas(firstFloat.re, firstFloat.im);
     this.ctx.moveTo(firstPoint.x, firstPoint.y);
 
-    // Connect to subsequent convergents up to current step
     const stepsToShow = this.isAnimating ?
       Math.min(this.currentStep + 1, this.currentConvergents.length) :
       this.currentConvergents.length;
@@ -774,13 +656,11 @@ export class ComplexVisualizerUI {
 
     this.ctx.stroke();
 
-    // Draw convergents as points
     for (let i = 0; i < stepsToShow; i++) {
       const convergent = this.currentConvergents[i];
       const convFloat = convergent.toFloat();
       const point = this.mapToCanvas(convFloat.re, convFloat.im);
 
-      // Determine color based on position in sequence
       let color;
       if (i === stepsToShow - 1 && this.isAnimating) {
         color = '#e74c3c'; // Current convergent (if animating)
@@ -790,54 +670,44 @@ export class ComplexVisualizerUI {
         color = '#3498db'; // Intermediate convergents
       }
 
-      // Draw point
       this.ctx.fillStyle = color;
       this.ctx.beginPath();
 
-      // Make the current or final convergent larger
       const radius = (i === stepsToShow - 1 && this.isAnimating) || i === this.currentConvergents.length - 1 ? 8 : 6;
       this.ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // Draw white border
       this.ctx.strokeStyle = 'white';
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
 
-      // Draw convergent label (C0, C1, C2, ...)
       this.ctx.fillStyle = '#2c3e50';
       this.ctx.font = i === this.currentConvergents.length - 1 ? 'bold 12px Open Sans' : '10px Open Sans';
       this.ctx.textAlign = 'center';
       this.ctx.fillText(`C${i}`, point.x, point.y + (i === this.currentConvergents.length - 1 ? 25 : 20));
     }
 
-    // Update display info - show count of VALID convergents
     if (this.currentConvergents.length > 0) {
       const currentIndex = this.isAnimating ?
         Math.min(this.currentStep, this.currentConvergents.length - 1) :
         this.currentConvergents.length - 1;
       const currentConv = this.currentConvergents[currentIndex];
 
-      // Update basic info
       this.currentConvergentElement.textContent = `C${currentIndex}`;
       this.totalConvergentsElement.textContent = this.currentConvergents.length; // Only valid ones
 
-      // Calculate distance to unit circle with full precision
       const distance = Math.abs(currentConv.magnitude() - 1);
       this.distanceToUnitCircleElement.textContent = distance.toFixed(16).replace(/\.?0+$/, '');
         
-      // Update trigonometric comparison (use last generated angle)
       if (this.lastGeneratedAngle !== null) {
           this.updateTrigComparison(currentConv);
       }
     }
 
-    // Draw first few redundant convergents (faded, no connecting lines)
     if (this.redundantStartIndex >= 0 && Array.isArray(this.allConvergents) && this.allConvergents.length > this.redundantStartIndex) {
       const start = this.redundantStartIndex;
       const end = Math.min(this.allConvergents.length, start + this.REDUNDANT_DISPLAY_COUNT);
 
-      // Use lower alpha for faded appearance
       const prevAlpha = this.ctx.globalAlpha;
       this.ctx.globalAlpha = 0.45;
 
@@ -846,21 +716,17 @@ export class ComplexVisualizerUI {
         const convFloat = convergent.toFloat();
         const point = this.mapToCanvas(convFloat.re, convFloat.im);
 
-        // Determine base color for redundant points (faded pink)
         const baseColor = '#f8d7da';
 
-        // Draw faded point (slightly smaller)
         this.ctx.fillStyle = baseColor;
         this.ctx.beginPath();
         this.ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Draw light border (faded)
         this.ctx.strokeStyle = 'white';
         this.ctx.lineWidth = 1.5;
         this.ctx.stroke();
 
-        // Draw label (floating name) with faded color
         this.ctx.globalAlpha = 1.0; // keep text readable
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.font = '10px Open Sans';
@@ -869,7 +735,6 @@ export class ComplexVisualizerUI {
         this.ctx.globalAlpha = 0.45;
       }
 
-      // Restore alpha
       this.ctx.globalAlpha = prevAlpha;
     }
   }
@@ -888,20 +753,16 @@ export class ComplexVisualizerUI {
     const jsIm = Math.sin(refAngle);
     const point = this.mapToCanvas(jsRe, jsIm);
 
-    // Draw point
     this.ctx.fillStyle = '#9b59b6'; // Purple color for JS Math value
     this.ctx.beginPath();
     
-    // Draw a square for differentiation
     const size = 6;
     this.ctx.fillRect(point.x - size, point.y - size, size * 2, size * 2);
     
-    // Draw white border
     this.ctx.strokeStyle = 'white';
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(point.x - size, point.y - size, size * 2, size * 2);
 
-    // Draw label
     this.ctx.fillStyle = '#8e44ad'; // Darker purple for text
     this.ctx.font = 'bold 11px Open Sans';
     this.ctx.textAlign = 'center';
@@ -909,19 +770,13 @@ export class ComplexVisualizerUI {
   }
 
   updateResultsGrid(coefficients, baseConvergents, finalConvergents, redundantStartIndex, mathLimitIndex) {
-    // const gridContainer = document.querySelector('.coefficients-convergents-grid');
     
-    // Clear existing content but keep structure if possible, or rebuild
-    // Since we are changing the structure to 4 columns, let's rebuild the internal lists
-    // We assume the HTML has been updated to have 4 columns with IDs:
-    // indicesList, coefficientsList, baseConvergentsList, finalConvergentsList
     
     const indicesList = document.getElementById('indicesList');
     const coefficientsList = document.getElementById('coefficientsList');
     const baseConvergentsList = document.getElementById('baseConvergentsList');
     const finalConvergentsList = document.getElementById('finalConvergentsList');
     
-    // Safety check if elements exist (in case HTML isn't updated yet or mismatched)
     if (!indicesList || !coefficientsList || !baseConvergentsList || !finalConvergentsList) return;
 
     indicesList.innerHTML = '';
@@ -929,7 +784,6 @@ export class ComplexVisualizerUI {
     baseConvergentsList.innerHTML = '';
     finalConvergentsList.innerHTML = '';
 
-    // Determine max length (usually they match, but be safe)
     const count = Math.max(coefficients.length, baseConvergents.length, finalConvergents.length);
 
     for (let i = 0; i < count; i++) {
@@ -937,13 +791,11 @@ export class ComplexVisualizerUI {
         const isMathLimit = i === mathLimitIndex;
         const className = `point-item ${isRedundant ? 'redundant' : 'valid'} ${isMathLimit ? 'math-limit' : ''}`;
 
-        // 1. Index
         const indexEl = document.createElement('div');
         indexEl.className = className;
         indexEl.textContent = i;
         indicesList.appendChild(indexEl);
 
-        // 2. Coefficient
         const coeffEl = document.createElement('div');
         coeffEl.className = className;
         if (i < coefficients.length) {
@@ -956,7 +808,6 @@ export class ComplexVisualizerUI {
         }
         coefficientsList.appendChild(coeffEl);
 
-        // 3. Base Convergent
         const baseEl = document.createElement('div');
         baseEl.className = className;
         if (i < baseConvergents.length) {
@@ -969,7 +820,6 @@ export class ComplexVisualizerUI {
         }
         baseConvergentsList.appendChild(baseEl);
 
-        // 4. Final Convergent
         const finalEl = document.createElement('div');
         finalEl.className = className;
         if (i < finalConvergents.length) {
@@ -988,7 +838,6 @@ export class ComplexVisualizerUI {
     const summaryContainer = document.getElementById('iterationMetricsSummary');
     if (!summaryContainer) return;
 
-    // Display the metrics summary
     const convergentIterValue = document.getElementById('convergentIterationsValue');
     const exponentiationIterValue = document.getElementById('exponentiationIterationsValue');
     const totalIterValue = document.getElementById('totalIterationsValue');
@@ -1010,50 +859,33 @@ export class ComplexVisualizerUI {
       return;
     }
     
-    // Stop any existing animation
     if (this.animationInterval) {
       clearInterval(this.animationInterval);
       this.isAnimating = false;
     }
 
-    // Reset view to default (1:1 zoom, centered)
     this.resetView();
 
-    // Reset animation state
     this.currentStep = 0;
 
     try {
-    // -------------------------------------------------------------------------
-    // OPTIMIZED LOGIC: USE CACHED RATIONAL
-    // -------------------------------------------------------------------------
-    // We use the cached minimal rational fraction which is updated whenever inputs change.
-    // This ensures consistency and avoids redundant calculation/precision errors.
 
-    // Safety check: if cache is missing (shouldn't happen with correct events), calculate it
     let minimalRational = this.cachedExactRational;
     if (!minimalRational) {
         minimalRational = toBigIntRational(angle);
         this.cachedExactRational = minimalRational;
     }
     
-    // Update the visual formula in the header
     this.updateHeaderFormula();
 
-    // Pass to Solver
-    // We update this.lastGeneratedAngle to match what we assume we are solving for
-    // We use (n/d) as the true angle if available from the cache
     let angleForCalculation = angle;
     if (minimalRational && minimalRational.d !== 0n) {
         angleForCalculation = Number(minimalRational.n) / Number(minimalRational.d);
     }
     this.lastGeneratedAngle = angleForCalculation;
     
-    // Generate coefficients with fixed count
-    // Use the minimal denominator found (convert BigInt to number for coefficient generation)
     const coefficients = generateCoefficients(Number(minimalRational.d), this.COEFFICIENT_COUNT);
 
-    // Calculate convergents (PASSING THE EXACT BIGINT RATIONAL)
-    // Now returns { baseConvergents, finalConvergents, mathLimitIndex, iterationMetrics } with rational BigInt Complex numbers
     const { 
       baseConvergents, 
       finalConvergents: allConvergents, 
@@ -1061,32 +893,23 @@ export class ComplexVisualizerUI {
       iterationMetrics 
     } = expWithConvergents(angleForCalculation, this.COEFFICIENT_COUNT, minimalRational);
 
-      // Find where convergents become redundant
-      // SIMPLIFIED: Strictly use the mathematical limit index.
-      // If mathLimitIndex is found, everything AFTER it is redundant.
       const redundantStartIndex = mathLimitIndex >= 0 ? mathLimitIndex + 1 : -1;
 
-      // Store all convergents and redundancy info for drawing
       this.allConvergents = allConvergents;
       this.redundantStartIndex = redundantStartIndex;
 
-      // Store only valid convergents (for canvas display/animation)
       if (redundantStartIndex >= 0) {
         this.currentConvergents = allConvergents.slice(0, redundantStartIndex);
       } else {
         this.currentConvergents = allConvergents;
       }
 
-      // Update grid display with all columns
       this.updateResultsGrid(coefficients, baseConvergents, allConvergents, redundantStartIndex, mathLimitIndex);
 
-      // Display iteration metrics
       this.displayIterationMetrics(iterationMetrics);
 
-      // Draw the scene
       this.drawScene();
 
-      // Start animation (only for valid convergents)
       this.startAnimation();
     } catch (error) {
       alert(`Error: ${error.message}`);
@@ -1097,7 +920,6 @@ export class ComplexVisualizerUI {
   startAnimation() {
     if (this.currentConvergents.length === 0) return;
 
-    // Stop any existing animation
     if (this.animationInterval) {
       clearInterval(this.animationInterval);
     }
@@ -1105,32 +927,24 @@ export class ComplexVisualizerUI {
     this.isAnimating = true;
     this.currentStep = 0;
 
-    // Animate only valid convergents
     this.animationInterval = setInterval(() => {
       this.currentStep++;
       this.drawScene();
 
-      // Stop when we've shown all valid convergents
       if (this.currentStep >= this.currentConvergents.length) {
         clearInterval(this.animationInterval);
         this.isAnimating = false;
-        // Show final state
         this.drawScene();
       }
     }, 100); // 0.8 seconds per step
   }
 
   generateRandomAngle() {
-    // Generate a random angle between 0.1 and 3.0 radians
     const randomAngle = (Math.random() * 2 * Math.PI).toFixed(6);
     this.angleInput.value = randomAngle;
 
-    // Trigger the input event to update rational values
-    // The event listener will call updateRationalFromDecimal which now has proper flag protection
     this.angleInput.dispatchEvent(new Event('input'));
 
-    // Generate and plot asynchronously to allow the UI (input field)
-    // to update visually before heavy BigInt math blocks the main thread.
     setTimeout(() => {
         this.generateAndPlot();
     }, 0);
@@ -1144,13 +958,11 @@ export class ComplexVisualizerUI {
       isDragging: false,
       lastMouseX: 0,
       lastMouseY: 0
-      // Removed: minBound and maxBound
     };
     this.drawScene();
   }
 
   zoomToLastConvergent() {
-    // Use currentConvergents which already excludes redundant convergents
     if (this.currentConvergents.length < 2) {
       alert('Need at least 2 valid convergents to zoom.');
       return;
@@ -1160,51 +972,40 @@ export class ComplexVisualizerUI {
     const lastConv = this.currentConvergents[lastIndex].toFloat();
     const prevConv = this.currentConvergents[lastIndex - 1].toFloat(); // Second-to-last is guaranteed to exist
 
-    // Calculate the bounding box that contains both convergents
     const minReal = Math.min(lastConv.re, prevConv.re);
     const maxReal = Math.max(lastConv.re, prevConv.re);
     const minImag = Math.min(lastConv.im, prevConv.im);
     const maxImag = Math.max(lastConv.im, prevConv.im);
 
-    // Calculate the center of the bounding box
     const centerReal = (minReal + maxReal) / 2;
     const centerImag = (minImag + maxImag) / 2;
 
-    // Calculate the dimensions of the bounding box
     let width = maxReal - minReal;
     let height = maxImag - minImag;
 
-    // Fix for identical/very close points causing division by zero (blank screen)
-    // Ensure we have a minimum box size
     const minSize = 1e-15;
     if (width < minSize) width = minSize;
     if (height < minSize) height = minSize;
 
-    // Add padding around the points (20% of the dimensions)
     const padding = 0.2;
     const paddedWidth = width * (1 + 2 * padding);
     const paddedHeight = height * (1 + 2 * padding);
 
-    // We want the padded bounding box to fill most of the canvas
     const canvasSize = this.complexCanvas.width;
     const boundsRange = 2.4;
 
-    // Calculate the required scale to fit the padded bounding box
     const requiredScaleX = canvasSize / paddedWidth;
     const requiredScaleY = canvasSize / paddedHeight;
     const requiredScale = Math.min(requiredScaleX, requiredScaleY) * (boundsRange / canvasSize);
 
-    // Update the view state
     this.viewState.centerX = -centerReal;
     this.viewState.centerY = -centerImag;
     this.viewState.scale = requiredScale * 1.1; // Add a little extra padding
 
-    // Ensure we don't zoom out too much
     if (this.viewState.scale < 0.8) {
       this.viewState.scale = 0.8;
     }
 
-    // Redraw the scene
     this.drawScene();
   }
 
@@ -1215,69 +1016,50 @@ export class ComplexVisualizerUI {
       return;
     }
 
-    // Get the Javascript reference point (True value)
     const refRe = Math.cos(refAngle);
     const refIm = Math.sin(refAngle);
 
-    // Get the last valid convergent
     const lastConv = this.currentConvergents[this.currentConvergents.length - 1].toFloat();
 
-    // Calculate the bounding box that contains both the reference point and last convergent
     const minReal = Math.min(lastConv.re, refRe);
     const maxReal = Math.max(lastConv.re, refRe);
     const minImag = Math.min(lastConv.im, refIm);
     const maxImag = Math.max(lastConv.im, refIm);
 
-    // Calculate the center of the bounding box
     const centerReal = (minReal + maxReal) / 2;
     const centerImag = (minImag + maxImag) / 2;
 
-    // Calculate the dimensions of the bounding box
     let width = maxReal - minReal;
     let height = maxImag - minImag;
 
-    // Fix for identical/very close points causing division by zero (blank screen)
-    // Ensure we have a minimum box size
     const minSize = 1e-15;
     if (width < minSize) width = minSize;
     if (height < minSize) height = minSize;
 
-    // Add padding around the points (20% of the dimensions)
     const padding = 0.2;
     const paddedWidth = width * (1 + 2 * padding);
     const paddedHeight = height * (1 + 2 * padding);
 
-    // We want the padded bounding box to fill most of the canvas
     const canvasSize = this.complexCanvas.width;
     const boundsRange = 2.4;
 
-    // Calculate the required scale to fit the padded bounding box
     const requiredScaleX = canvasSize / paddedWidth;
     const requiredScaleY = canvasSize / paddedHeight;
     const requiredScale = Math.min(requiredScaleX, requiredScaleY) * (boundsRange / canvasSize);
 
-    // Update the view state
     this.viewState.centerX = -centerReal;
     this.viewState.centerY = -centerImag;
     this.viewState.scale = requiredScale * 1.1; // Add a little extra padding
 
-    // Ensure we don't zoom out too much
     if (this.viewState.scale < 0.8) {
       this.viewState.scale = 0.8;
     }
 
-    // Redraw the scene
     this.drawScene();
   }
 
-  /**
- * Update the trigonometric comparison display
- * @param {Complex} convergent - The latest convergent
- * @param {number} angle - Angle in radians
- */
 
   updateTrigComparison(convergent) {
-    // Get JavaScript's trigonometric values using TRUE REFERENCE from cached rational
     const refAngle = this.getTrueReferenceAngle();
     if (refAngle === null) return;
     
@@ -1285,34 +1067,25 @@ export class ComplexVisualizerUI {
     const jsSin = Math.sin(refAngle);
     let jsTan;
 
-    // Handle tangent (avoid division by zero)
     if (Math.abs(jsCos) < 1e-15) {
       jsTan = jsSin > 0 ? Infinity : -Infinity;
     } else {
       jsTan = Math.tan(refAngle);
     }
 
-    // Our convergent values (cos = real part, sin = imaginary part)
     const convFloat = convergent.toFloat();
     const convCos = convFloat.re;
     const convSin = convFloat.im;
     let convTan;
 
-    // Calculate our tangent using BigInt rational division: imag / real
-    // Check if the real part (cosine) is zero using the rational representation
     if (convergent.re.n === 0n) {
-      // Real part is zero - tangent is infinite
       convTan = convergent.im.n > 0n ? Infinity : -Infinity;
     } else {
-      // Perform rational division: im / re
-      // This is equivalent to (im.n / im.d) / (re.n / re.d) = (im.n * re.d) / (im.d * re.n)
       const tanRational = {
         n: convergent.im.n * convergent.re.d,
         d: convergent.im.d * convergent.re.n
       };
       
-      // Convert the rational result to decimal
-      // Handle sign correctly for negative denominators
       if (tanRational.d < 0n) {
         tanRational.n = -tanRational.n;
         tanRational.d = -tanRational.d;
@@ -1321,23 +1094,18 @@ export class ComplexVisualizerUI {
       convTan = Number(tanRational.n) / Number(tanRational.d);
     }
 
-    // Calculate differences
     const diffCos = Math.abs(jsCos - convCos);
     const diffSin = Math.abs(jsSin - convSin);
     let diffTan;
 
-    // Handle special cases for tangent difference
     if (Math.abs(jsTan) === Infinity && Math.abs(convTan) === Infinity) {
-      // Both are infinite - check if they have same sign
       diffTan = (jsTan === convTan) ? 0 : Infinity;
     } else if (Math.abs(jsTan) === Infinity || Math.abs(convTan) === Infinity) {
-      // One is infinite, the other is not
       diffTan = Infinity;
     } else {
       diffTan = Math.abs(jsTan - convTan);
     }
 
-    // Helper function to set value and tooltip
     const setValueWithTooltip = (element, value, isDiff = false) => {
       let formatted = isDiff ? formatDifference(value) : formatFullPrecision(value);
       
@@ -1349,17 +1117,14 @@ export class ComplexVisualizerUI {
       element.title = `${formatted}\nRaw value: ${value}`;
     };
 
-    // Update cosine display
     setValueWithTooltip(this.convergentCosElement, convCos);
     setValueWithTooltip(this.jsCosElement, jsCos);
     setValueWithTooltip(this.diffCosElement, diffCos, true);
 
-    // Update sine display
     setValueWithTooltip(this.convergentSinElement, convSin);
     setValueWithTooltip(this.jsSinElement, jsSin);
     setValueWithTooltip(this.diffSinElement, diffSin, true);
 
-    // Update tangent display
     setValueWithTooltip(this.convergentTanElement, convTan);
     setValueWithTooltip(this.jsTanElement, jsTan);
     setValueWithTooltip(this.diffTanElement, diffTan, true);
@@ -1374,18 +1139,10 @@ export class ComplexVisualizerUI {
     highlightElement(this.jsTanElement);
     highlightElement(this.diffTanElement);
 
-    // Update convergence indicator
     this.updateConvergenceIndicator(diffCos, diffSin, diffTan);
   }
 
-  /**
-   * Update the convergence quality indicator
-   * @param {number} diffCos - Cosine difference
-   * @param {number} diffSin - Sine difference
-   * @param {number} diffTan - Tangent difference
-   */
   updateConvergenceIndicator(diffCos, diffSin, diffTan) {
-    // Calculate average error (skip tangent if it's problematic)
     const errors = [diffCos, diffSin];
 
     if (diffTan !== Infinity && !isNaN(diffTan)) {
@@ -1394,7 +1151,6 @@ export class ComplexVisualizerUI {
 
     const avgError = errors.reduce((sum, err) => sum + err, 0) / errors.length;
 
-    // Convert error to convergence percentage (log scale)
     let convergencePercent;
     let statusText;
 
@@ -1424,10 +1180,8 @@ export class ComplexVisualizerUI {
       statusText = "Needs more coefficients";
     }
 
-    // Update the indicator bar
     this.convergenceBarElement.style.width = `${convergencePercent}%`;
 
-    // Update status with color coding
     let statusColor;
     if (convergencePercent >= 90) statusColor = '#2ecc71';
     else if (convergencePercent >= 70) statusColor = '#f39c12';
@@ -1436,26 +1190,19 @@ export class ComplexVisualizerUI {
     this.convergenceStatusElement.textContent = statusText;
     this.convergenceStatusElement.style.color = statusColor;
 
-    // Animate indicator bar
     this.convergenceBarElement.classList.add('animating');
     setTimeout(() => {
         this.convergenceBarElement.classList.remove('animating');
     }, 2000);
 
-    // Add tooltip with exact error
     this.convergenceStatusElement.title = `Average error: ${avgError.toExponential(6)}`;
   }
 
-  /**
-   * Update the formula display in the input header
-   * Renders e^(i * n/d) using a vertically stacked fraction.
-   */
   updateHeaderFormula() {
     if (!this.headerFormula || !this.cachedExactRational) return;
     
     const { n, d } = this.cachedExactRational;
     
-    // Normalize n and d sign (d should be positive)
     let nFinal = n;
     let dFinal = d;
     if (dFinal < 0n) {
@@ -1463,14 +1210,11 @@ export class ComplexVisualizerUI {
         dFinal = -dFinal;
     }
 
-    // Base HTML: "Calculate for e"
     let headerHTML = 'Calculate for ';
     
     if (nFinal === 1n && dFinal === 1n) {
-      // Simplest case: e^i
       headerHTML += '<span class="base-e">e</span><span class="exponent">i</span>';
     } else if (nFinal === 1n) {
-       // Case: e^(i · 1/d)
        const fractionHTML = `
         <div class="header-fraction">
           <span class="num">1</span>
@@ -1480,10 +1224,8 @@ export class ComplexVisualizerUI {
       `;
       headerHTML += `<span class="base-e">e</span><span class="exponent">i &middot; ${fractionHTML}</span>`;
     } else if (dFinal === 1n) {
-       // Case: e^(i · n)
        headerHTML += `<span class="base-e">e</span><span class="exponent">i &middot; ${nFinal}</span>`;
     } else {
-      // General case: e^(i · n/d)
       const fractionHTML = `
         <div class="header-fraction">
           <span class="num">${nFinal}</span>

@@ -1,4 +1,3 @@
-/* style.css - Styles for Complex Continued Fraction Convergent Visualizer */
 * {
     margin: 0;
     padding: 0;
@@ -40,7 +39,6 @@ h1 {
     font-size: 1.1rem;
 }
 
-/* Adjust content section to handle the increased heights */
 .content {
     display: flex;
     flex-wrap: wrap;
@@ -49,7 +47,6 @@ h1 {
     min-height: 900px; /* Increased to accommodate both sections */
 }
 
-/* Adjust input-section to accommodate taller grid */
 .input-section {
     flex: 1;
     min-width: 600px;
@@ -62,7 +59,6 @@ h1 {
     flex-direction: column;
 }
 
-/* Adjust canvas-section to match input-section height */
 .canvas-section {
     flex: 1;
     min-width: 600px;
@@ -84,7 +80,6 @@ h2 {
     font-weight: 600;
 }
 
-/* Main input layout (Single Line) */
 .input-container-row {
     display: flex;
     flex-direction: column;
@@ -97,7 +92,6 @@ h2 {
     overflow-x: auto;
 }
 
-/* Decimal Input Group */
 .decimal-group {
     display: flex;
     align-items: center;
@@ -127,7 +121,6 @@ h2 {
     border-color: #3498db;
 }
 
-/* Equals Sign */
 .equals-sign {
     font-size: 24px;
     font-weight: 700;
@@ -136,7 +129,6 @@ h2 {
     flex-shrink: 0;
 }
 
-/* Rational + PI Group */
 .rational-pi-group {
     display: flex;
     align-items: center;
@@ -180,7 +172,6 @@ h2 {
     color: #2c3e50;
 }
 
-/* PI Dropdown */
 .pi-select-container {
     min-width: 160px;
 }
@@ -263,7 +254,6 @@ canvas {
     display: block;
 }
 
-/* Make canvas-container square but also flexible */
 .canvas-container {
     position: relative;
     width: 100%;
@@ -276,14 +266,12 @@ canvas {
     margin: 0 auto;
 }
 
-/* Make canvas fill the container */
 #complexCanvas {
     width: 100% !important;
     height: 100% !important;
     display: block; /* Yes, we need this to remove default inline spacing */
 }
 
-/* Coefficients and Convergents Grid */
 .coefficients-convergents-grid {
     display: grid;
     grid-template-columns: 5% 15% 38% 38%;
@@ -312,7 +300,6 @@ canvas {
     padding-bottom: 5px;
 }
 
-/* Ensure compact-point-list takes all available space and scrolls if needed */
 .compact-point-list {
     flex: 1;
     overflow-y: auto;
@@ -324,7 +311,6 @@ canvas {
     scrollbar-color: #3498db #f1f1f1;
 }
 
-/* Custom scrollbar for Webkit browsers */
 .compact-point-list::-webkit-scrollbar {
     width: 4px;
 }
@@ -361,7 +347,6 @@ canvas {
     font-size: 10px;
 }
 
-/* Consistent styling for all point-items regardless of parent */
 .point-item {
     font-family: 'Roboto Mono', monospace;
     padding: 4px 4px;
@@ -372,20 +357,17 @@ canvas {
     align-items: center; /* Vertically center content */
     justify-content: center; /* Horizontally center content */
 }
-/* Style for redundant coefficients/convergents */
 .point-item.redundant {
     background-color: #f8d7da;
     color: #721c24;
     opacity: 0.8;
 }
 
-/* Style for non-redundant items */
 .point-item.valid {
     background-color: #e8f4fc;
     color: #2c3e50;
 }
 
-/* Style for mathematical limit highlight */
 .point-item.math-limit {
     border: 2px solid #27ae60;
     background-color: #e8f8f5;
@@ -411,7 +393,6 @@ canvas {
     text-align: center;
 }
 
-/* Trigonometric Comparison Section - COMPACT VERSION */
 .trig-comparison {
     margin-top: 15px;
     padding: 15px;
@@ -433,7 +414,6 @@ canvas {
     font-size: 18px;
 }
 
-/* COMPACT GRID */
 .comparison-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -456,7 +436,6 @@ canvas {
     transform: translateY(-2px);
 }
 
-/* Card color themes */
 .cosine-card {
     border-top-color: #e74c3c;
 }
@@ -469,7 +448,6 @@ canvas {
     border-top-color: #9b59b6;
 }
 
-/* Header - more compact */
 .comparison-header {
     display: flex;
     justify-content: space-between;
@@ -499,7 +477,6 @@ canvas {
     border: 1px solid #eaeaea;
 }
 
-/* VALUES - COMPACT STACKED LAYOUT */
 .comparison-values {
     display: flex;
     flex-direction: column;
@@ -551,7 +528,6 @@ canvas {
     margin-top: 3px;
 }
 
-/* Make sure the value box doesn't shrink */
 .value::before {
     content: '';
     display: block;
@@ -559,7 +535,6 @@ canvas {
     visibility: hidden;
 }
 
-/* Value color themes */
 .convergent-value {
     color: #3498db;
     border-color: #3498db;
@@ -588,7 +563,6 @@ canvas {
     background-color: rgba(231, 76, 60, 0.03);
 }
 
-/* Convergence Indicator */
 .convergence-indicator {
     margin-top: 15px;
     padding: 12px;
@@ -628,7 +602,6 @@ canvas {
     font-weight: 500;
 }
 
-/* Tooltip for values */
 .value {
     position: relative;
     cursor: help;
@@ -657,26 +630,16 @@ canvas {
     word-break: break-all;
 }
 
-/* Animation for value updates */
 @keyframes highlightValue {
     0% { background-color: rgba(52, 152, 219, 0.1); }
     100% { background-color: rgba(255, 255, 255, 0.7); }
 }
 
-/* .value.updated {
-    animation: highlightValue 0.5s ease;
-} */
-
-/* Color transitions for indicator bar */
 @keyframes pulseIndicator {
     0% { opacity: 0.8; }
     50% { opacity: 1; }
     100% { opacity: 0.8; }
 }
-
-/* .indicator-fill.animating {
-    animation: pulseIndicator 2s ease-in-out infinite;
-} */
 
 .info-panel {
     display: none;
@@ -745,7 +708,6 @@ canvas {
     font-size: 0.85em;
 }
 
-/* Insights Grid */
 .insights-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -810,7 +772,6 @@ canvas {
     margin-bottom: 0;
 }
 
-/* Color code each insight card */
 .insights-grid > div:nth-child(1) .insight-icon {
     background-color: #e74c3c; /* Red for pattern insight */
 }
@@ -827,7 +788,6 @@ canvas {
     background-color: #f39c12; /* Orange for simultaneous insight */
 }
 
-/* Efficiency Summary */
 .efficiency-summary {
     background-color: rgba(46, 204, 113, 0.08);
     border: 1px solid rgba(46, 204, 113, 0.2);
@@ -875,7 +835,6 @@ canvas {
     line-height: 1.3;
 }
 
-/* Proper mathematical notation styling */
 sup {
     font-size: 0.8em;
     vertical-align: super;
@@ -888,7 +847,6 @@ sub {
     line-height: 0;
 }
 
-/* Ensure mathematical expressions look good in headers */
 h1 sup, h2 sup, h3 sup,
 h1 sub, h2 sub, h3 sub {
     font-size: 0.7em;
@@ -898,7 +856,6 @@ h1 sub, h2 sub, h3 sub {
     font-size: 0.75em;
 }
 
-/* Add special styling for complex exponential notation */
 .complex-exp {
     font-family: 'Times New Roman', serif;
     font-style: italic;
@@ -917,7 +874,6 @@ footer {
     color: #7f8c8d;
 }
 
-/* Tooltip styles */
 .convergent-tooltip {
     position: absolute;
     display: none;
@@ -1073,7 +1029,6 @@ footer {
 }
 
 
-/* Input Header */
 .input-header {
     font-weight: 600;
     color: #2c3e50;
@@ -1130,7 +1085,6 @@ footer {
     margin: 1px 0;
 }
 
-/* Input Wrapper Row */
 .input-wrapper {
     display: flex;
     align-items: center;
@@ -1138,7 +1092,6 @@ footer {
     width: 100%;
 }
 
-/* Iteration Metrics Summary */
 .iteration-metrics-summary {
     margin-top: 0;
     margin-bottom: 20px;

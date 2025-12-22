@@ -1,8 +1,3 @@
-/**
- * Convert a decimal number to a rational approximation
- * @param {number} x - Decimal number to convert
- * @returns {{n: number, d: number}} Object with numerator and denominator
- */
 export function toRational(x) {
   if (!isFinite(x)) return { n: NaN, d: NaN };
   if (x === 0) return { n: 0, d: 1 };
@@ -16,18 +11,15 @@ export function toRational(x) {
   let x_ = 1 / (x - m);
   let p_ = 1, q_ = 0, p = m, q = 1;
 
-  // Safety guards to prevent infinite loop
   const MAX_ITERATIONS = 100;
   const MAX_DENOMINATOR = 1e15;
   let iterations = 0;
 
   while (Math.abs(x - p / q) > Number.EPSILON) {
-    // Check iteration limit
     if (++iterations > MAX_ITERATIONS) {
       break;
     }
 
-    // Check for invalid x_
     if (!isFinite(x_) || x_ === 0) {
       break;
     }
@@ -36,7 +28,6 @@ export function toRational(x) {
     x_ = 1 / (x_ - m);
     [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
 
-    // Check denominator size
     if (q > MAX_DENOMINATOR || q > Number.MAX_SAFE_INTEGER) {
       break;
     }
@@ -45,11 +36,6 @@ export function toRational(x) {
   return { n: sign * p, d: q };
 }
 
-/**
- * Convert a decimal number to a BigInt rational approximation
- * @param {number} x - Decimal number to convert
- * @returns {{n: bigint, d: bigint}} Object with BigInt numerator and denominator
- */
 export function toBigIntRational(x) {
   if (!isFinite(x)) {
     throw new Error('Cannot convert non-finite number to BigInt rational');
@@ -65,18 +51,15 @@ export function toBigIntRational(x) {
   let x_ = 1 / (x - m);
   let p_ = 1n, q_ = 0n, p = BigInt(m), q = 1n;
 
-  // Safety guards to prevent infinite loop
   const MAX_ITERATIONS = 100;
   const MAX_DENOMINATOR = 10n ** 15n; // Limit denominator size
   let iterations = 0;
 
   while (Math.abs(x - Number(p) / Number(q)) > Number.EPSILON) {
-    // Check iteration limit
     if (++iterations > MAX_ITERATIONS) {
       break; // Exit if too many iterations
     }
 
-    // Check for invalid x_
     if (!isFinite(x_) || x_ === 0) {
       break; // Exit if x_ is infinite, NaN, or zero
     }
@@ -85,12 +68,10 @@ export function toBigIntRational(x) {
     x_ = 1 / (x_ - Number(m));
     [p_, q_, p, q] = [p, q, m * p + p_, m * q + q_];
 
-    // Check denominator size to prevent overflow
     if (q > MAX_DENOMINATOR) {
       break; // Exit if denominator grows too large
     }
 
-    // Check for precision loss (when conversion to Number loses information)
     if (q > Number.MAX_SAFE_INTEGER) {
       break; // Exit if we've lost precision in the convergence check
     }
@@ -100,11 +81,6 @@ export function toBigIntRational(x) {
 }
 
 
-/**
- * Format a number to full double precision (17 digits)
- * @param {number} value - Value to format
- * @returns {string} Formatted string
- */
 export function formatFullPrecision(value) {
   if (Math.abs(value) === Infinity) {
     return value > 0 ? '∞' : '-∞';
@@ -127,31 +103,15 @@ export function formatFullPrecision(value) {
   return value.toFixed(17);
 }
 
-/**
- * Clean trailing zeros from a number string
- * @param {string} str - String to clean
- * @returns {string} Cleaned string
- */
 export function cleanTrailingZeros(str) {
   return str.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
 
-/**
- * Format a number for display with precision
- * @param {number} value - Value to format
- * @param {number} precision - Decimal places (default 17)
- * @returns {string} Formatted string
- */
 export function formatDisplayNumber(value, precision = 17) {
   const formatted = value.toFixed(precision);
   return cleanTrailingZeros(formatted);
 }
 
-/**
- * Format difference values (use scientific notation for very small values)
- * @param {number} value - Difference value
- * @returns {string} Formatted string
- */
 export function formatDifference(value) {
   const absValue = Math.abs(value);
 
@@ -166,10 +126,6 @@ export function formatDifference(value) {
   return formatFullPrecision(value);
 }
 
-/**
- * Trigger highlight animation on an element
- * @param {HTMLElement} element - Element to highlight
- */
 export function highlightElement(element) {
   element.classList.remove('updated');
   void element.offsetWidth; // Trigger reflow
