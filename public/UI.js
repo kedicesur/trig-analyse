@@ -828,7 +828,7 @@ export class ComplexVisualizerUI {
         
       // Update trigonometric comparison (use last generated angle)
       if (this.lastGeneratedAngle !== null) {
-          this.updateTrigComparison(currentConv, this.lastGeneratedAngle);
+          this.updateTrigComparison(currentConv);
       }
     }
 
@@ -1276,7 +1276,7 @@ export class ComplexVisualizerUI {
  * @param {number} angle - Angle in radians
  */
 
-  updateTrigComparison(convergent, angle) {
+  updateTrigComparison(convergent) {
     // Get JavaScript's trigonometric values using TRUE REFERENCE from cached rational
     const refAngle = this.getTrueReferenceAngle();
     if (refAngle === null) return;
