@@ -12,7 +12,7 @@ import {
   isZero,
   bigIntSqrt,
   MAX_DEN
-} from '../public/RationalBigInt.js';
+} from './RationalBigInt.js';
 
 class Complex {
   /**
