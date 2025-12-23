@@ -1,9 +1,6 @@
 import { serveDir } from "@std/http/file-server";
 import { normalize } from "@std/path";
 
-<<<<<<< Updated upstream
-Deno.serve({ port: 8080 }, (req) => {
-=======
 // 📊 Open Deno KV database for visitor tracking
 const kv = await Deno.openKv();
 
@@ -160,7 +157,6 @@ async function getStats(limit = 100): Promise<{
 }
 
 Deno.serve(async (req) => {
->>>>>>> Stashed changes
   const url = new URL(req.url);
   const rawPath = url.pathname;
 
