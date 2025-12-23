@@ -1,0 +1,14 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded blue frame -->
+  <rect x="1" y="1" width="98" height="98" rx="8" ry="8" stroke="blue" stroke-width="5" fill="none" />
+
+  <!-- Red sine wave shortened horizontally: starts at x=10 and ends at x=90 -->
+  <!-- Baseline y = 28, control peak y ≈ 10, trough y ≈ 46 -->
+  <path d="M10 28 Q30 10 50 28 T90 28" fill="none" stroke="red" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Three white vinculum lines lowered well below the sine -->
+  <line x1="15" y1="52" x2="65" y2="52" stroke="white" stroke-width="5" stroke-linecap="round" />
+  <line x1="25" y1="66" x2="75" y2="66" stroke="white" stroke-width="5" stroke-linecap="round" />
+  <line x1="35" y1="80" x2="85" y2="80" stroke="white" stroke-width="5" stroke-linecap="round" />
+</svg>
+

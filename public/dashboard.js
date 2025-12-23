@@ -145,9 +145,9 @@ function updateTimeSeriesGraph() {
   
   // Set canvas size to match display size
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * window.devicePixelRatio;
-  canvas.height = rect.height * window.devicePixelRatio;
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  canvas.width = rect.width * globalThis.devicePixelRatio;
+  canvas.height = rect.height * globalThis.devicePixelRatio;
+  ctx.scale(globalThis.devicePixelRatio, globalThis.devicePixelRatio);
   
   const width = rect.width;
   const height = rect.height;
