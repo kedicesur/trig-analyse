@@ -7,11 +7,38 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const rawPath = url.pathname;
 
+  // 📦 API endpoint for version information
+  if (rawPath === "/api/version") {
+    try {
+      const denoJson = JSON.parse(await Deno.readTextFile("./deno.json"));
+      return new Response(JSON.stringify({
+        name: denoJson.name || "trig-analyse",
+        version: denoJson.version || "unknown",
+        description: denoJson.description || ""
+      }, null, 2), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=3600" // Cache for 1 hour
+        },
+      });
+    } catch (error) {
+      console.error("Failed to read version:", error);
+      return new Response(JSON.stringify({ 
+        error: "Failed to read version info",
+        version: "unknown"
+      }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
   // 📊 API endpoint for visitor statistics
   if (rawPath === "/api/stats") {
     try {
       const limit = parseInt(url.searchParams.get("limit") || "100");
-      // Ensure reasonable limits for Deno Deploy
       const safeLimit = Math.min(Math.max(limit, 1), 500);
       const stats = await getStats(safeLimit);
       
@@ -19,8 +46,8 @@ Deno.serve(async (req) => {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*", // Allow dashboard to access
-          "Cache-Control": "public, max-age=30" // Cache for 30 seconds
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=30"
         },
       });
     } catch (error) {
@@ -35,31 +62,42 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 🔒 1. Reject suspicious paths early
+  // 🔒 Reject suspicious paths early
   const lowered = rawPath.toLowerCase();
   if (
     lowered.includes("..") ||
-    lowered.includes("%2e") // catches %2e, %2e%2e, etc.
+    lowered.includes("%2e")
   ) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // 🔒 2. Normalize path (defensive)
+  // 🔒 Normalize path (defensive)
   const safePath = normalize(rawPath);
   if (!safePath.startsWith("/")) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // 📝 Log visitor (async, don't block response) - with enhanced error handling
-  logVisitor(req).catch(err => {
-    console.error("Failed to log visitor:", err);
-    // Don't throw - we don't want to break user experience
-  });
+  // ✅ Only log HTML page visits (not assets like JS, CSS, images)
+  const shouldLog = 
+    rawPath === "/" || 
+    rawPath === "/index.html" || 
+    rawPath === "/dashboard.html" ||
+    rawPath.endsWith(".html");
 
-  // 📦 3. Serve static files securely
+  // 🚫 Don't log API calls, static assets
+  const isAsset = /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i.test(rawPath);
+  
+  if (shouldLog && !isAsset && !rawPath.startsWith("/api/")) {
+    // 📝 Log visitor (async, don't block response)
+    logVisitor(req).catch(err => {
+      console.error("Failed to log visitor:", err);
+    });
+  }
+
+  // 📦 Serve static files securely
   return serveDir(req, {
     fsRoot: "./public",
-    showDirListing: false, // ❌ disable directory listings
+    showDirListing: false,
     quiet: true,
   });
 });

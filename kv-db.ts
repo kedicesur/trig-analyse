@@ -18,7 +18,7 @@ export interface VisitorLog {
   method: string;
 }
 
-// 🔍 Enhanced KV operation helpers with error handling
+// 🔧 Enhanced KV operation helpers with error handling
 async function safeKvSet(key: Deno.KvKey, value: unknown): Promise<void> {
   try {
     await kv.set(key, value);
@@ -51,7 +51,54 @@ function getISOWeek(date: Date): string {
   return `${target.getFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 }
 
-// 🔍 Log visitor with privacy compliance
+// 🌐 Extract real IP address from Deno Deploy headers
+function getRealIP(headers: Headers): string {
+  // On Deno Deploy, the real client IP is in x-forwarded-for
+  // Format: "client-ip, proxy1, proxy2"
+  const forwardedFor = headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    // Take the first IP in the chain (the actual client)
+    const ips = forwardedFor.split(",").map(ip => ip.trim());
+    if (ips[0]) return ips[0];
+  }
+
+  // Fallback to other headers
+  const cfConnecting = headers.get("cf-connecting-ip");
+  if (cfConnecting) return cfConnecting;
+
+  const realIp = headers.get("x-real-ip");
+  if (realIp) return realIp;
+
+  return "unknown";
+}
+
+// 🌍 Get country from IP address using ip-api.com (free, no key required)
+// Rate limit: 45 requests per minute
+async function getCountryFromIP(ip: string): Promise<string | null> {
+  // Skip for unknown/private IPs
+  if (ip === "unknown" || ip.startsWith("127.") || ip.startsWith("192.168.") || ip.startsWith("10.")) {
+    return null;
+  }
+
+  try {
+    // Using ip-api.com free tier (no API key needed)
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`, {
+      signal: AbortSignal.timeout(2000) // 2 second timeout
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.countryCode || null;
+    }
+  } catch (error) {
+    // Silently fail - don't block visitor logging if geo lookup fails
+    console.error("Failed to get country for IP:", ip, error);
+  }
+  
+  return null;
+}
+
+// 📝 Log visitor with privacy compliance
 export async function logVisitor(req: Request): Promise<void> {
   const headers = req.headers;
   
@@ -63,20 +110,22 @@ export async function logVisitor(req: Request): Promise<void> {
 
   const url = new URL(req.url);
   const timestamp = Date.now();
+  const ip = getRealIP(headers);
   
-  const visitor: VisitorLog = {
-    timestamp,
-    ip: headers.get("cf-connecting-ip") || 
-        headers.get("x-forwarded-for") || 
-        headers.get("x-real-ip") || 
-        "unknown",
-    userAgent: headers.get("user-agent"),
-    referer: headers.get("referer"),
-    origin: headers.get("origin"),
-    country: headers.get("cf-ipcountry"), // Cloudflare provides this
-    path: url.pathname,
-    method: req.method,
-  };
+  // 🌍 Get country from IP (async, but we'll await it)
+  const country = headers.get("cf-ipcountry") || await getCountryFromIP(ip);
+  
+  const visitor: VisitorLog = { timestamp
+                              , ip
+                              , userAgent:headers.get( "user-agent")
+                              , referer:headers.get( "referer")
+                              , origin:headers.get( "origin")
+                              , country
+                              , path:url.pathname
+                              , method:req.method
+                              , 
+                              };
+  
 
   // 💾 Store visit data with timestamp-based key
   await safeKvSet(["visits", timestamp], visitor);
@@ -189,14 +238,13 @@ export async function getStats(limit = 100): Promise<{
     console.error("Failed to list monthly stats:", error);
   }
 
-  return {
-    totalVisits,
-    recentVisits,
-    dailyStats,
-    weeklyStats,
-    monthlyStats,
-    topReferers: refererCount,
-    topCountries: countryCount,
-    topPaths: pathCount,
-  };
+  return { totalVisits
+         , recentVisits
+         , dailyStats
+         , weeklyStats
+         , monthlyStats
+         , topReferers: refererCount
+         , topCountries: countryCount
+         , topPaths: pathCount
+         };
 }
