@@ -388,9 +388,19 @@
         </ul>
       </div>
 
-      <footer>
-        <p>Complex Continued Fraction Convergent Visualizer &copy; 2023 | Based on complex simple continued fractions
-        </p>
+      <footer style="text-align: center; padding: 20px; color: #666; font-size: 0.9em;">
+        <p>Trig Analyse: <span id="description"></span> &copy<span id="current-year"></span> Version: <span id="app-version">v1.0.0</span></p>
+        <script>
+          // Optionally fetch version dynamically
+          fetch('/api/version')
+            .then(r => r.json())
+            .then(data => {
+              document.getElementById('current-year').textContent = new Date().getFullYear();
+              document.getElementById('description').textContent = data.description || 'Complex Continued Fraction Visualizer';
+              document.getElementById('app-version').textContent = `v${data.version}`;
+            })
+            .catch(() => { }); // Fail silently
+        </script>
       </footer>
     </div>
 
