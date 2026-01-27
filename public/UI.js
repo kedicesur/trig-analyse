@@ -47,7 +47,7 @@ export class ComplexVisualizerUI {
     this.isAnimating = false;
     this.allConvergents = [];
     this.redundantStartIndex = -1;
-    this.REDUNDANT_DISPLAY_COUNT = 4; // how many redundant points to show
+    this.REDUNDANT_DISPLAY_COUNT = 4;
     
     this.inputSource = 'decimal';
 
@@ -93,6 +93,8 @@ export class ComplexVisualizerUI {
     this.setupInputEvents();
 
     this.setupCanvasEvents();
+
+    this.setupSynchronizedScrolling();
 
     this.createTooltip();
 
@@ -158,7 +160,7 @@ export class ComplexVisualizerUI {
         const deltaX = e.clientX - this.viewState.lastMouseX;
         const deltaY = e.clientY - this.viewState.lastMouseY;
 
-        const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / 2.4); // 2.4 = maxBound - minBound
+        const scaleFactor = this.viewState.scale * (Math.min(this.complexCanvas.width, this.complexCanvas.height) / 2.4);
 
         const newCenterX = this.viewState.centerX + deltaX / scaleFactor;
         const newCenterY = this.viewState.centerY - deltaY / scaleFactor;
@@ -213,6 +215,61 @@ export class ComplexVisualizerUI {
     });
   }
 
+  setupSynchronizedScrolling() {
+  
+    const indicesList = document.getElementById('indicesList');
+    const coefficientsList = document.getElementById('coefficientsList');
+    const baseConvergentsList = document.getElementById('baseConvergentsList');
+    const finalConvergentsList = document.getElementById('finalConvergentsList');
+
+    let isScrolling = false;
+
+    const isVisible = (element) => {
+      if (!element) return false;
+      const style = window.getComputedStyle(element);
+      return style.display !== 'none';
+    };
+
+    const getVisibleColumns = () => {
+      const columns = [];
+      if (isVisible(indicesList)) columns.push(indicesList);
+      if (isVisible(coefficientsList)) columns.push(coefficientsList);
+      if (isVisible(baseConvergentsList)) columns.push(baseConvergentsList);
+      if (isVisible(finalConvergentsList)) columns.push(finalConvergentsList);
+      return columns;
+    };
+
+    const synchronizeScroll = (sourceElement) => {
+      if (isScrolling) return;
+      isScrolling = true;
+
+      const visibleColumns = getVisibleColumns();
+      const scrollTop = sourceElement.scrollTop;
+
+      requestAnimationFrame(() => {
+        visibleColumns.forEach(column => {
+          if (column !== sourceElement) {
+            column.scrollTop = scrollTop;
+          }
+        });
+        isScrolling = false;
+      });
+    };
+
+    const columns = [indicesList, coefficientsList, baseConvergentsList, finalConvergentsList];
+    columns.forEach(column => {
+      if (column) {
+        column.addEventListener('scroll', (e) => {
+          synchronizeScroll(e.currentTarget);
+        }, { passive: true });
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      // No action needed - the scroll event listeners will automatically
+      // work with the currently visible columns
+    });
+  }
 
   parsePiValue(piStr) {
     if (piStr === '1') return 1;
@@ -304,7 +361,7 @@ export class ComplexVisualizerUI {
     const mouseY = e.clientY - rect.top;
 
     this.hoveredConvergent = null;
-    const hoverRadius = 20; // pixels
+    const hoverRadius = 20;
 
     if (this.currentConvergents.length > 0) {
       const stepsToCheck = this.isAnimating ?
@@ -420,8 +477,8 @@ export class ComplexVisualizerUI {
   }
 
   mapToCanvas(real, imag) {
-    const canvasSize = this.complexCanvas.width; // Use width since it's square
-    const boundsRange = 2.4; // 1.2 - (-1.2)
+    const canvasSize = this.complexCanvas.width; 
+    const boundsRange = 2.4;
 
     const scaleFactor = (canvasSize / boundsRange) * this.viewState.scale;
 
@@ -663,11 +720,11 @@ export class ComplexVisualizerUI {
 
       let color;
       if (i === stepsToShow - 1 && this.isAnimating) {
-        color = '#e74c3c'; // Current convergent (if animating)
+        color = '#e74c3c';
       } else if (i === this.currentConvergents.length - 1) {
-        color = '#2ecc71'; // Final convergent
+        color = '#2ecc71';
       } else {
-        color = '#3498db'; // Intermediate convergents
+        color = '#3498db';
       }
 
       this.ctx.fillStyle = color;
@@ -694,7 +751,7 @@ export class ComplexVisualizerUI {
       const currentConv = this.currentConvergents[currentIndex];
 
       this.currentConvergentElement.textContent = `C${currentIndex}`;
-      this.totalConvergentsElement.textContent = this.currentConvergents.length; // Only valid ones
+      this.totalConvergentsElement.textContent = this.currentConvergents.length;
 
       const distance = Math.abs(currentConv.magnitude() - 1);
       this.distanceToUnitCircleElement.textContent = distance.toFixed(16).replace(/\.?0+$/, '');
@@ -727,7 +784,7 @@ export class ComplexVisualizerUI {
         this.ctx.lineWidth = 1.5;
         this.ctx.stroke();
 
-        this.ctx.globalAlpha = 1.0; // keep text readable
+        this.ctx.globalAlpha = 1.0;
         this.ctx.fillStyle = '#2c3e50';
         this.ctx.font = '10px Open Sans';
         this.ctx.textAlign = 'center';
@@ -753,7 +810,7 @@ export class ComplexVisualizerUI {
     const jsIm = Math.sin(refAngle);
     const point = this.mapToCanvas(jsRe, jsIm);
 
-    this.ctx.fillStyle = '#9b59b6'; // Purple color for JS Math value
+    this.ctx.fillStyle = '#9b59b6';
     this.ctx.beginPath();
     
     const size = 6;
@@ -763,7 +820,7 @@ export class ComplexVisualizerUI {
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(point.x - size, point.y - size, size * 2, size * 2);
 
-    this.ctx.fillStyle = '#8e44ad'; // Darker purple for text
+    this.ctx.fillStyle = '#8e44ad';
     this.ctx.font = 'bold 11px Open Sans';
     this.ctx.textAlign = 'center';
     this.ctx.fillText('JS', point.x, point.y - 15);
@@ -798,6 +855,7 @@ export class ComplexVisualizerUI {
 
         const coeffEl = document.createElement('div');
         coeffEl.className = className;
+        coeffEl.setAttribute('data-index', i);
         if (i < coefficients.length) {
             const c = coefficients[i];
             const cFloat = c.toFloat();
@@ -810,6 +868,7 @@ export class ComplexVisualizerUI {
 
         const baseEl = document.createElement('div');
         baseEl.className = className;
+        baseEl.setAttribute('data-index', i);
         if (i < baseConvergents.length) {
             const b = baseConvergents[i];
             const bFloat = b.toFloat();
@@ -822,6 +881,7 @@ export class ComplexVisualizerUI {
 
         const finalEl = document.createElement('div');
         finalEl.className = className;
+        finalEl.setAttribute('data-index', i);
         if (i < finalConvergents.length) {
             const f = finalConvergents[i];
             const fFloat = f.toFloat();
@@ -936,7 +996,7 @@ export class ComplexVisualizerUI {
         this.isAnimating = false;
         this.drawScene();
       }
-    }, 100); // 0.8 seconds per step
+    }, 100);
   }
 
   generateRandomAngle() {
@@ -970,7 +1030,7 @@ export class ComplexVisualizerUI {
 
     const lastIndex = this.currentConvergents.length - 1;
     const lastConv = this.currentConvergents[lastIndex].toFloat();
-    const prevConv = this.currentConvergents[lastIndex - 1].toFloat(); // Second-to-last is guaranteed to exist
+    const prevConv = this.currentConvergents[lastIndex - 1].toFloat();
 
     const minReal = Math.min(lastConv.re, prevConv.re);
     const maxReal = Math.max(lastConv.re, prevConv.re);
@@ -1000,7 +1060,7 @@ export class ComplexVisualizerUI {
 
     this.viewState.centerX = -centerReal;
     this.viewState.centerY = -centerImag;
-    this.viewState.scale = requiredScale * 1.1; // Add a little extra padding
+    this.viewState.scale = requiredScale * 1.1;
 
     if (this.viewState.scale < 0.8) {
       this.viewState.scale = 0.8;
@@ -1049,7 +1109,7 @@ export class ComplexVisualizerUI {
 
     this.viewState.centerX = -centerReal;
     this.viewState.centerY = -centerImag;
-    this.viewState.scale = requiredScale * 1.1; // Add a little extra padding
+    this.viewState.scale = requiredScale * 1.1;
 
     if (this.viewState.scale < 0.8) {
       this.viewState.scale = 0.8;
