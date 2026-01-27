@@ -946,6 +946,7 @@ export class ComplexVisualizerUI {
         // 2. Coefficient
         const coeffEl = document.createElement('div');
         coeffEl.className = className;
+        coeffEl.setAttribute('data-index', i); // Add index for mobile pairing
         if (i < coefficients.length) {
             const c = coefficients[i];
             const cFloat = c.toFloat();
@@ -959,6 +960,7 @@ export class ComplexVisualizerUI {
         // 3. Base Convergent
         const baseEl = document.createElement('div');
         baseEl.className = className;
+        baseEl.setAttribute('data-index', i); // Add index for mobile pairing
         if (i < baseConvergents.length) {
             const b = baseConvergents[i];
             const bFloat = b.toFloat();
@@ -972,6 +974,7 @@ export class ComplexVisualizerUI {
         // 4. Final Convergent
         const finalEl = document.createElement('div');
         finalEl.className = className;
+        finalEl.setAttribute('data-index', i); // Add index for mobile pairing
         if (i < finalConvergents.length) {
             const f = finalConvergents[i];
             const fFloat = f.toFloat();
