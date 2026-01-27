@@ -51,6 +51,11 @@ function getISOWeek(date: Date): string {
   return `${target.getFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 }
 
+// 🔍 Check if an IP address is private/internal
+function isPrivateIP(ip: string): boolean {
+  return /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|::1|fe80:)/i.test(ip);
+}
+
 // 🌐 Extract real IP address from Deno Deploy headers
 function getRealIP(headers: Headers): string {
   // On Deno Deploy, the real client IP is in x-forwarded-for
@@ -99,7 +104,7 @@ async function getCountryFromIP(ip: string): Promise<string | null> {
 }
 
 // 📝 Log visitor with privacy compliance
-export async function logVisitor(req: Request): Promise<void> {
+export async function logVisitor(req: Request, info: Deno.ServeHandlerInfo): Promise<void> {
   const headers = req.headers;
   
   // ✅ Respect Do Not Track header
@@ -110,7 +115,19 @@ export async function logVisitor(req: Request): Promise<void> {
 
   const url = new URL(req.url);
   const timestamp = Date.now();
-  const ip = getRealIP(headers);
+  
+  // 🛡️ Enhanced IP detection with connection info fallback
+  let ip = getRealIP(headers);
+  
+  // Fallback: If headers gave "unknown" but we have connection info, use that
+  if (ip === "unknown" && info) {
+    // Check if remoteAddr is a NetAddr (has hostname property)
+    if (info.remoteAddr.transport === "tcp" || info.remoteAddr.transport === "udp") {
+      const remoteIP = info.remoteAddr.hostname;
+      // Only use the connection IP if it's not a private/internal IP
+      ip = isPrivateIP(remoteIP) ? "local" : remoteIP;
+    }
+  }
   
   // 🌍 Get country from IP (async, but we'll await it)
   const country = headers.get("cf-ipcountry") || await getCountryFromIP(ip);

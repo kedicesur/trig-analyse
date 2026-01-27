@@ -3,7 +3,7 @@ import { serveDir } from "@std/http/file-server";
 import { normalize } from "@std/path";
 import { logVisitor, getStats } from "./kv-db.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(async (req, info) => {
   const url = new URL(req.url);
   const rawPath = url.pathname;
 
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
   
   if (shouldLog && !isAsset && !rawPath.startsWith("/api/")) {
     // 📝 Log visitor (async, don't block response)
-    logVisitor(req).catch(err => {
+    logVisitor(req, info).catch(err => {
       console.error("Failed to log visitor:", err);
     });
   }
