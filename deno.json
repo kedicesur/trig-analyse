@@ -1,5 +1,5 @@
 { "name": "trig-analyse"
-, "version": "1.0.1"
+, "version": "1.0.2"
 , "description": "Complex Continued Fraction Convergent Visualizer for Trigonometric Computation"
 , "author": "Ömer Kaşdarma"
 , "license": "MIT"
