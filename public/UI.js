@@ -264,11 +264,6 @@ export class ComplexVisualizerUI {
         }, { passive: true });
       }
     });
-
-    window.addEventListener('resize', () => {
-      // No action needed - the scroll event listeners will automatically
-      // work with the currently visible columns
-    });
   }
 
   parsePiValue(piStr) {
