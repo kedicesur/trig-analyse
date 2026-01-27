@@ -112,6 +112,9 @@ export class ComplexVisualizerUI {
     // Set up canvas event listeners for panning and zooming
     this.setupCanvasEvents();
 
+    // Set up synchronized scrolling for coefficients/convergents grid
+    this.setupSynchronizedScrolling();
+
     // Create tooltip element
     this.createTooltip();
 
@@ -251,6 +254,74 @@ export class ComplexVisualizerUI {
       this.viewState.centerY += deltaY;
 
       this.drawScene();
+    });
+  }
+
+  setupSynchronizedScrolling() {
+    // Get references to all scrollable columns
+    const indicesList = document.getElementById('indicesList');
+    const coefficientsList = document.getElementById('coefficientsList');
+    const baseConvergentsList = document.getElementById('baseConvergentsList');
+    const finalConvergentsList = document.getElementById('finalConvergentsList');
+
+    // Flag to prevent circular scroll events
+    let isScrolling = false;
+
+    // Helper function to check if an element is visible
+    const isVisible = (element) => {
+      if (!element) return false;
+      const style = window.getComputedStyle(element);
+      return style.display !== 'none';
+    };
+
+    // Helper function to get all visible scrollable columns
+    const getVisibleColumns = () => {
+      const columns = [];
+      if (isVisible(indicesList)) columns.push(indicesList);
+      if (isVisible(coefficientsList)) columns.push(coefficientsList);
+      if (isVisible(baseConvergentsList)) columns.push(baseConvergentsList);
+      if (isVisible(finalConvergentsList)) columns.push(finalConvergentsList);
+      return columns;
+    };
+
+    // Synchronize scroll position across all visible columns
+    const synchronizeScroll = (sourceElement) => {
+      if (isScrolling) return;
+      isScrolling = true;
+
+      const visibleColumns = getVisibleColumns();
+      const scrollTop = sourceElement.scrollTop;
+
+      console.log('Synchronizing scroll from:', sourceElement.id, 'scrollTop:', scrollTop);
+
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        visibleColumns.forEach(column => {
+          if (column !== sourceElement) {
+            column.scrollTop = scrollTop;
+          }
+        });
+        isScrolling = false;
+      });
+    };
+
+    // Add scroll event listeners to all columns
+    const columns = [indicesList, coefficientsList, baseConvergentsList, finalConvergentsList];
+    columns.forEach(column => {
+      if (column) {
+        // Use passive event listeners for better touch performance
+        // Use currentTarget instead of target to get the element with the listener
+        column.addEventListener('scroll', (e) => {
+          console.log('Scroll event on:', e.currentTarget.id);
+          synchronizeScroll(e.currentTarget);
+        }, { passive: true });
+      }
+    });
+
+    // Re-check visibility on window resize
+    window.addEventListener('resize', () => {
+      // No action needed - the scroll event listeners will automatically
+      // work with the currently visible columns
     });
   }
 
