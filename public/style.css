@@ -1030,7 +1030,7 @@ footer {
     .coefficients-convergents-grid {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
         height: auto;
         max-height: 500px;
         overflow-y: auto;
@@ -1052,7 +1052,7 @@ footer {
     .grid-column {
         background-color: white;
         border-radius: 8px;
-        padding: 8px;
+        padding: 2px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
         border-left: 4px solid #3498db;
         min-height: auto;
@@ -1435,11 +1435,11 @@ footer {
 /* Extra small mobile devices (phones in portrait) */
 @media (max-width: 480px) {
     .coefficients-convergents-grid {
-        gap: 8px;
+        gap: 6px;
     }
 
     .grid-column {
-        padding: 8px;
+        padding: 2px;
     }
 
     .grid-column::before {
