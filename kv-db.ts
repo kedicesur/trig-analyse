@@ -125,7 +125,9 @@ export async function logVisitor(req: Request, info: Deno.ServeHandlerInfo): Pro
     if (info.remoteAddr.transport === "tcp" || info.remoteAddr.transport === "udp") {
       const remoteIP = info.remoteAddr.hostname;
       // Only use the connection IP if it's not a private/internal IP
-      ip = isPrivateIP(remoteIP) ? "local" : remoteIP;
+      ip = isPrivateIP(remoteIP) ? "local" 
+                                 : remoteIP.startsWith("::ffff:") ? remoteIP.substring(7)
+                                                                  : remoteIP;
     }
   }
   
