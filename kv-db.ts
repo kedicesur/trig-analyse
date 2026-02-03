@@ -1,12 +1,25 @@
 /// <reference lib="deno.unstable" />
+// deno-lint-ignore-file no-cond-assign
 
 // 📊 Deno KV Database Module for Visitor Analytics
-// This module handles all KV operations for the Trig Analyse application
 
-// Open KV database connection
+// 1. Singleton KV Connection
 const kv = await Deno.openKv();
 
-// 📝 Visitor tracking interface
+// Helper to safely unwrap Deno.KvU64 to number (handles .sum() stored values)
+const unwrap = (v: unknown) => v instanceof Deno.KvU64 ? Number(v.value) : Number(v || 0);
+
+// Helper functions for getStats
+const fetchCounters = (prefix: readonly string[]) => Array.fromAsync(kv.list({ prefix }))     // The key is likely ["stats", "paths", "/home"] -> take the last part
+                                                          .then(entries => entries.reduce<Record<string, number>>((stats, entry) => ( stats[entry.key[entry.key.length - 1] as string] = unwrap(entry.value) 
+                                                                                                                                    , stats
+                                                                                                                                    )
+                                                                                                                 , {}
+                                                                                                                 )),
+        sortTop     = (obj: Record<string, number>) => Object.fromEntries(Object.entries(obj) // Sort "Top" lists by value (descending) since KV returns them by Key (alphabetical)
+                                                             .sort(([, a], [, b]) => b - a)
+                                                             .slice(0, 50));
+
 export interface VisitorLog {
   timestamp: number;
   ip: string;
@@ -18,252 +31,157 @@ export interface VisitorLog {
   method: string;
 }
 
-// 🔧 Enhanced KV operation helpers with error handling
-async function safeKvSet(key: Deno.KvKey, value: unknown): Promise<void> {
-  try {
-    await kv.set(key, value);
-  } catch (error) {
-    console.error("KV set operation failed:", error);
-  }
-}
-
-async function safeKvGet<T>(key: Deno.KvKey): Promise<T | null> {
-  try {
-    const result = await kv.get<T>(key);
-    return result.value as T | null;
-  } catch (error) {
-    console.error("KV get operation failed:", error);
-    return null;
-  }
-}
-
 // 📅 Get ISO week number (YYYY-WW format)
 function getISOWeek(date: Date): string {
-  const target = new Date(date.valueOf());
-  const dayNr = (date.getDay() + 6) % 7;
-  target.setDate(target.getDate() - dayNr + 3);
-  const firstThursday = target.valueOf();
-  target.setMonth(0, 1);
-  if (target.getDay() !== 4) {
-    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-  }
-  const weekNumber = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
-  return `${target.getFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
 
 // 🔍 Check if an IP address is private/internal
 function isPrivateIP(ip: string): boolean {
-  return /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|::1|fe80:)/i.test(ip);
+  return /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|::1|fe80:|fc00:|fd00:)/i.test(ip);
 }
 
-// 🌐 Extract real IP address from Deno Deploy headers
-function getRealIP(headers: Headers): string {
-  // On Deno Deploy, the real client IP is in x-forwarded-for
-  // Format: "client-ip, proxy1, proxy2"
-  const forwardedFor = headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    // Take the first IP in the chain (the actual client)
-    const ips = forwardedFor.split(",").map(ip => ip.trim());
-    if (ips[0]) return ips[0];
-  }
-
-  // Fallback to other headers
-  const cfConnecting = headers.get("cf-connecting-ip");
-  if (cfConnecting) return cfConnecting;
-
-  const realIp = headers.get("x-real-ip");
-  if (realIp) return realIp;
-
-  return "unknown";
+/**
+ * High-Performance KV Rate Limiter
+ * Strategy: Hybrid (Check-then-Act for creation, Blind Increment for updates)
+ */
+export function checkRateLimit( ip:string
+                              , endpoint:string
+                              , maxRequests = 20
+                              , windowMs = 60000
+                              ): Promise<boolean> {
+  const key = [ "rate_limit"
+              , endpoint
+              , ip
+              , Math.floor(Date.now()/windowMs) // Time Window Bucket
+              ];
+  return ip === "unknown" ||
+         ip === "local"    ? Promise.resolve(true)         // 1. Fail Open: Don't block localhost or privacy-aware users
+                           : kv.atomic()                   // 2. Optimized "First Request" Handling
+                               .check({ key                //    We try to set the key with an expiry. This ensures no memory leaks.
+                                      , versionstamp:null  //    This atomic transaction ONLY succeeds if the key does NOT exist yet.
+                                      })                   //    .check ensures key doesn't exist
+                               .set( key                   // Set initial count & TTL
+                                   , new Deno.KvU64(1n)
+                                   , { expireIn:windowMs }
+                                   )
+                               .commit()
+                               .then(commit => commit.ok ? 1 <= maxRequests  // If commit succeeded, we were the first! Count is 1, which is <= maxRequests (assuming max > 0).
+                                                         : kv.atomic()       // 3. "Thundering Herd" Handling (Blind Increment)
+                                                             .sum(key, 1n)   // Increment. Note: If key expired in the split second between check and sum, this creates a zombie key without TTL.
+                                                             .commit()       // We switch to blind increment. No checks, no retries, no contention loops.
+                                                             .then(_ => kv.get<Deno.KvU64>(key))                  // 4. Read & Decide
+                                                             .then(entry => unwrap(entry.value) <= maxRequests)); // We read the final state to make the decision.
 }
 
-// 🌍 Get country from IP address using ip-api.com (free, no key required)
-// Rate limit: 45 requests per minute
-async function getCountryFromIP(ip: string): Promise<string | null> {
-  // Skip for unknown/private IPs
-  if (ip === "unknown" || ip.startsWith("127.") || ip.startsWith("192.168.") || ip.startsWith("10.")) {
-    return null;
-  }
+// 🌐 Centralized IP Extraction (Used by logging AND rate limiting)
+export function getClientIP(headers: Headers, info?: Deno.ServeHandlerInfo): string {
+  let ip: string | null = null; 
 
-  try {
-    // Using ip-api.com free tier (no API key needed)
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`, {
-      signal: AbortSignal.timeout(2000) // 2 second timeout
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.countryCode || null;
-    }
-  } catch (error) {
-    // Silently fail - don't block visitor logging if geo lookup fails
-    console.error("Failed to get country for IP:", ip, error);
-  }
-  
-  return null;
+  return (ip = headers.get("cf-connecting-ip")) ? ip // 1. Cloudflare / Deno Deploy
+                                                :
+         (ip = headers.get("x-forwarded-for")
+                     ?.split(",")[0]
+                      .trim() || null)          ? ip // 2. X-Forwarded-For
+                                                :
+         (ip = headers.get("x-real-ip"))        ? ip // 3. Real IP Header
+                                                :
+         info?.remoteAddr?.transport === "tcp" ||    // 4. Connection Info
+         info?.remoteAddr?.transport === "udp"  ? ( ip = (info.remoteAddr as Deno.NetAddr).hostname.replace(/^::ffff:/, "")
+                                                   , isPrivateIP(ip) ? "local"
+                                                                     : ip
+                                                   )
+         /* OTHERWISE */                        : "unknown"; // 5. Fallback
 }
 
-// 📝 Log visitor with privacy compliance
-export async function logVisitor(req: Request, info: Deno.ServeHandlerInfo): Promise<void> {
-  const headers = req.headers;
-  
-  // ✅ Respect Do Not Track header
-  const dnt = headers.get("dnt") || headers.get("DNT");
-  if (dnt === "1") {
-    return; // Don't track if user has DNT enabled
-  }
-
-  const url = new URL(req.url);
-  const timestamp = Date.now();
-  
-  // 🛡️ Enhanced IP detection with connection info fallback
-  let ip = getRealIP(headers);
-  
-  // Fallback: If headers gave "unknown" but we have connection info, use that
-  if (ip === "unknown" && info) {
-    // Check if remoteAddr is a NetAddr (has hostname property)
-    if (info.remoteAddr.transport === "tcp" || info.remoteAddr.transport === "udp") {
-      const remoteIP = info.remoteAddr.hostname;
-      // Only use the connection IP if it's not a private/internal IP
-      ip = isPrivateIP(remoteIP) ? "local" 
-                                 : remoteIP.startsWith("::ffff:") ? remoteIP.substring(7)
-                                                                  : remoteIP;
-    }
-  }
-  
-  // 🌍 Get country from IP (async, but we'll await it)
-  const country = headers.get("cf-ipcountry") || await getCountryFromIP(ip);
-  
-  const visitor: VisitorLog = { timestamp
-                              , ip
-                              , userAgent:headers.get( "user-agent")
-                              , referer:headers.get( "referer")
-                              , origin:headers.get( "origin")
-                              , country
-                              , path:url.pathname
-                              , method:req.method
-                              , 
-                              };
-  
-
-  // 💾 Store visit data with timestamp-based key
-  await safeKvSet(["visits", timestamp], visitor);
-  
-  // 📊 Update counters
-  const date = new Date(timestamp);
-  
-  // Daily: YYYY-MM-DD
-  const dateKey = date.toISOString().split("T")[0];
-  const dailyCount = await safeKvGet<number>(["daily", dateKey]) || 0;
-  await safeKvSet(["daily", dateKey], dailyCount + 1);
-  
-  // Weekly: YYYY-WW (ISO week number)
-  const weekKey = getISOWeek(date);
-  const weeklyCount = await safeKvGet<number>(["weekly", weekKey]) || 0;
-  await safeKvSet(["weekly", weekKey], weeklyCount + 1);
-  
-  // Monthly: YYYY-MM
-  const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-  const monthlyCount = await safeKvGet<number>(["monthly", monthKey]) || 0;
-  await safeKvSet(["monthly", monthKey], monthlyCount + 1);
+// 🌍 Get country from IP address
+function getCountryFromIP(ip: string): Promise<string | null> {
+  return ip === "unknown" ||
+         ip === "local"    ? Promise.resolve(null)
+         /* OTHERWISE */   : fetch( `http://ip-api.com/json/${ip}?fields=countryCode`
+                                  , {signal: AbortSignal.timeout(2000)}
+                                  ).then(res => res.ok ? res.json()
+                                                       : null)
+                                   .then(data => data?.countryCode || null)
+                                   .catch(e => ( console.error("Geo lookup failed:", e)
+                                               , null
+                                               ));
 }
 
-// 📈 Get visitor statistics
-export async function getStats(limit = 100): Promise<{
-  totalVisits: number;
-  recentVisits: VisitorLog[];
-  dailyStats: Record<string, number>;
-  weeklyStats: Record<string, number>;
-  monthlyStats: Record<string, number>;
-  topReferers: Record<string, number>;
-  topCountries: Record<string, number>;
-  topPaths: Record<string, number>;
-}> {
-  const recentVisits: VisitorLog[] = [];
-  const refererCount: Record<string, number> = {};
-  const countryCount: Record<string, number> = {};
-  const pathCount: Record<string, number> = {};
-  const dailyStats: Record<string, number> = {};
-  const weeklyStats: Record<string, number> = {};
-  const monthlyStats: Record<string, number> = {};
+// 📝 Log visitor with Atomic Operations
+export function logVisitor(req: Request, ip: string): Promise<void> {
+  const headers   = req.headers,
+        url       = new URL(req.url),
+        timestamp = Date.now(),
+        date      = new Date(timestamp),
+        referer   = headers.get("referer") || "direct";
   
-  // 📋 Get recent visits (limit to last N visits)
-  let entries;
-  try {
-    entries = kv.list<VisitorLog>({ prefix: ["visits"] }, { 
-      limit,
-      reverse: true // Most recent first
-    });
-  } catch (error) {
-    console.error("Failed to list visits:", error);
-    entries = null;
-  }
-  
-  let totalVisits = 0;
-  if (entries) {
-    try {
-      for await (const entry of entries) {
-        totalVisits++;
-        const visit = entry.value;
-        recentVisits.push(visit);
-        
-        // Count referers
-        const referer = visit.referer || "direct";
-        refererCount[referer] = (refererCount[referer] || 0) + 1;
-        
-        // Count countries
-        if (visit.country) {
-          countryCount[visit.country] = (countryCount[visit.country] || 0) + 1;
-        }
-        
-        // Count paths
-        pathCount[visit.path] = (pathCount[visit.path] || 0) + 1;
-      }
-    } catch (error) {
-      console.error("Error iterating visits:", error);
-    }
-  }
-  
-  // 📅 Get daily stats
-  try {
-    const dailyEntries = kv.list<number>({ prefix: ["daily"] });
-    for await (const entry of dailyEntries) {
-      const date = entry.key[1] as string;
-      dailyStats[date] = entry.value;
-    }
-  } catch (error) {
-    console.error("Failed to list daily stats:", error);
-  }
-  
-  // 📅 Get weekly stats
-  try {
-    const weeklyEntries = kv.list<number>({ prefix: ["weekly"] });
-    for await (const entry of weeklyEntries) {
-      const week = entry.key[1] as string;
-      weeklyStats[week] = entry.value;
-    }
-  } catch (error) {
-    console.error("Failed to list weekly stats:", error);
-  }
-  
-  // 📅 Get monthly stats
-  try {
-    const monthlyEntries = kv.list<number>({ prefix: ["monthly"] });
-    for await (const entry of monthlyEntries) {
-      const month = entry.key[1] as string;
-      monthlyStats[month] = entry.value;
-    }
-  } catch (error) {
-    console.error("Failed to list monthly stats:", error);
-  }
+  return headers.get("dnt") === "1" ||
+         headers.get("DNT") === "1" ? Promise.resolve(void 0)   // ✅ Respect Do Not Track
+                                    : Promise.resolve(headers.get("cf-ipcountry") || getCountryFromIP(ip))
+                                             .then(function(country) {
+                                                     const visitor: VisitorLog = { timestamp
+                                                                                 , ip
+                                                                                 , userAgent: headers.get("user-agent")
+                                                                                 , referer
+                                                                                 , origin: headers.get("origin")
+                                                                                 , country
+                                                                                 , path: url.pathname
+                                                                                 , method: req.method
+                                                                                 };
+                                                     return kv.atomic() // ⚡ START ATOMIC TRANSACTION. We use atomic().sum() to ensure counts are accurate even under high load
+                                                              .set(["visits", timestamp, crypto.randomUUID()], visitor)      // 1. Store visit with UUID to prevent timestamp collisions
+                                                              .sum(["stats", "total"], 1n)                                   // 2. Global Totals (Fixes the "Limit 100" issue)
+                                                              .sum(["stats", "paths", url.pathname.slice(0, 128)], 1n)       // Truncate path to prevent key size errors
+                                                              .sum(["stats", "countries", country || "unknown"], 1n)
+                                                              .sum(["stats", "referers", referer.slice(0, 128)], 1n)         // Truncate referer to prevent key size errors
+                                                              .sum(["stats", "daily", date.toISOString().split("T")[0]], 1n) // 3. Time-based Stats (YYYY-MM-DD)
+                                                              .sum(["stats", "weekly", getISOWeek(date)], 1n)                //                     (YYYY-WW)
+                                                              .sum(["stats", "monthly", `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`], 1n)
+                                                              .commit();                                                     // 4. Commit the transaction
+                                                  })
+                                             .then(commit => !commit.ok ? console.error("Failed to log visitor data")
+                                                                        : void 0)
+                                             .catch(e => console.error("Error logging visitor:", e));
+}
 
-  return { totalVisits
-         , recentVisits
-         , dailyStats
-         , weeklyStats
-         , monthlyStats
-         , topReferers: refererCount
-         , topCountries: countryCount
-         , topPaths: pathCount
-         };
+export function getStats(limit = 100) {
+         // Parallel fetch for speed
+  return Promise.all([ kv.get(["stats", "total"])                       // 1. Fetch Global Counters (Accurate totals)
+                     , Array.fromAsync( kv.list( { prefix: [ "visits"]} // 2. Fetch Recent Visits Log (Limited for display)
+                                               , { limit
+                                                 , reverse: true
+                                                 }
+                                               )
+                                      , e => e.value
+                                      )
+                     , fetchCounters(["stats", "daily"])                // 3. Helper to fetch all counters for a prefix (Daily, Top Paths, etc.)
+                     , fetchCounters(["stats", "weekly"])
+                     , fetchCounters(["stats", "monthly"])
+                     , fetchCounters(["stats", "paths"])
+                     , fetchCounters(["stats", "countries"])
+                     , fetchCounters(["stats", "referers"])
+                     ])
+                .then(([ totalRes
+                       , recentVisits
+                       , dailyStats
+                       , weeklyStats
+                       , monthlyStats
+                       , topPaths
+                       , topCountries
+                       , topReferers
+                       ]) => ({ totalVisits: unwrap(totalRes?.value)
+                              , recentVisits
+                              , dailyStats
+                              , weeklyStats
+                              , monthlyStats
+                              , topPaths: sortTop( topPaths)
+                              , topCountries: sortTop( topCountries)
+                              , topReferers: sortTop( topReferers)
+                              }));
 }
