@@ -3,12 +3,12 @@
 , "description": "Complex Continued Fraction Convergent Visualizer for Trigonometric Computation"
 , "author": "Ömer Kaşdarma"
 , "license": "MIT"
+, "exports": "./main.ts"
 , "repository": { "type": "git"
                 , "url": "https://github.com/kedicesur/trig-analyse"
                 }
 , "tasks": { "dev": "deno run --watch=main.ts,public --allow-read --allow-write --allow-net main.ts"
            , "clear-local-db": "deno run --allow-read --allow-write --allow-net clear-db.ts"
-           , "clear-remote-db": "deno run --allow-net --tunnel clear-db.ts"
            }
 , "unstable": [ "kv"]
 , "imports": { "@std/assert": "jsr:@std/assert@1"

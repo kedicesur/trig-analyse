@@ -17,25 +17,35 @@ if (!proceed) {
 
 console.log("✅ Confirmation received. Starting database cleanup...");
 
-let count = 0;
-let atomic = kv.atomic();
-const BATCH_SIZE = 100;
+async function deletePrefix(prefix: Deno.KvKey) {
+  console.log(`\n🗑️  Scanning prefix: [${prefix.join(", ")}]...`);
+  let count = 0;
+  let atomic = kv.atomic();
+  const BATCH_SIZE = 100;
+  const iter = kv.list({ prefix });
 
-// List all entries in the database
-const iter = kv.list({ prefix: [] });
+  for await (const entry of iter) {
+    atomic.delete(entry.key);
+    count++;
 
-for await (const entry of iter) {
-  atomic.delete(entry.key);
-  count++;
-
-  if (count % BATCH_SIZE === 0) {
-    await atomic.commit();
-    atomic = kv.atomic();
-    console.log(`Deleted ${count} entries...`);
+    if (count % BATCH_SIZE === 0) {
+      const res = await atomic.commit();
+      if (!res.ok) console.error("❌ Failed to commit batch!");
+      atomic = kv.atomic();
+      console.log(`   ...deleted ${count} items so far`);
+    }
   }
+
+  const res = await atomic.commit();
+  if (!res.ok) console.error("❌ Failed to commit final batch!");
+  console.log(`✅ Finished [${prefix.join(", ")}]: Deleted ${count} entries.`);
+  return count;
 }
 
-// Commit any remaining deletions
-await atomic.commit();
+// Explicitly delete known prefixes to ensure nothing is missed
+let total = 0;
+total += await deletePrefix(["visits"]);
+total += await deletePrefix(["stats"]);
+total += await deletePrefix(["rate_limit"]);
 
-console.log(`✅ Database cleared! Total deleted entries: ${count}`);
+console.log(`\n🎉 Database cleanup complete! Total deleted entries: ${total}`);
