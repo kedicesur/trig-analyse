@@ -5,7 +5,17 @@
 
 const kv = await Deno.openKv();
 
-console.log("⚠️  Starting database cleanup...");
+// Add a confirmation prompt for safety. This is critical for production environments.
+const proceed = confirm(
+  "⚠️ DANGER: This will permanently delete ALL data in the connected Deno KV database. Are you sure you want to proceed?",
+);
+
+if (!proceed) {
+  console.log("❌ Database clearing cancelled.");
+  Deno.exit(0);
+}
+
+console.log("✅ Confirmation received. Starting database cleanup...");
 
 let count = 0;
 let atomic = kv.atomic();
