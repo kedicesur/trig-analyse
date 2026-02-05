@@ -37,6 +37,10 @@ async function loadStats() {
     const data = await response.json();
     statsData = data; // Store globally
     
+    // Show dashboard BEFORE rendering charts to ensure canvas dimensions are correct
+    loading.style.display = 'none';
+    dashboard.style.display = 'block';
+    
     // Update summary stats
     updateSummaryStats(data);
     
@@ -55,8 +59,6 @@ async function loadStats() {
     document.getElementById('last-updated').textContent = 
       `Last updated: ${new Date().toLocaleTimeString()}`;
     
-    loading.style.display = 'none';
-    dashboard.style.display = 'block';
   } catch (error) {
     loading.style.display = 'none';
     errorContainer.innerHTML = `
@@ -125,7 +127,7 @@ function setTimeRange(range) {
   currentTimeRange = range;
   
   // Update button states
-  document.querySelectorAll('.time-range-btn').forEach(btn => {
+  document.querySelectorAll('.period-btn').forEach(btn => {
     btn.classList.remove('active');
   });
   document.querySelector(`[data-range="${range}"]`).classList.add('active');
@@ -274,7 +276,6 @@ function getTimeSeriesData() {
   if (!statsData) return [];
   
   let data;
-  let aggregateByYear = false;
   
   switch (currentTimeRange) {
     case 'daily':
@@ -293,7 +294,6 @@ function getTimeSeriesData() {
         const year = month.split('-')[0];
         data[year] = (data[year] || 0) + count;
       });
-      aggregateByYear = true;
       break;
     case 'max':
       // Use weekly data for max view
@@ -341,7 +341,9 @@ function formatDateLabel(dateStr) {
   }
   
   // Daily: "2025-12-23" -> "Dec 23"
-  const date = new Date(dateStr);
+  // Parse manually to avoid UTC conversion issues (timezone off-by-one)
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -355,7 +357,7 @@ function updateVisitsTable(visits) {
     const country = visit.country 
       ? `${countryFlags[visit.country] || '🌍'} ${visit.country}` 
       : '-';
-    const referer = visit.referer 
+    const referer = (visit.referer && visit.referer !== 'direct')
       ? truncateString(visit.referer, 30)
       : '<span class="badge">Direct</span>';
     const userAgent = truncateString(visit.userAgent || '-', 40);
@@ -386,4 +388,18 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Auto-refresh every 30 seconds
   setInterval(loadStats, 30000);
+
+  // Set up refresh button
+  const refreshBtn = document.getElementById('refresh-stats-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', loadStats);
+  }
+
+  // Set up time range buttons
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const range = btn.getAttribute('data-range');
+      if (range) setTimeRange(range);
+    });
+  });
 });

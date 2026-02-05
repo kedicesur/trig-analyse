@@ -1,51 +1,52 @@
 /// <reference lib="deno.unstable" />
 
 // 🗑️ Utility script to clear the entire Deno KV database
-// Run with: deno task clear-db
+// Usage: deno run -A clear-db.ts [DATABASE_URL]
 
-const kv = await Deno.openKv();
+const kvUrl = Deno.args[0];
+console.log(`Connecting to database at ${kvUrl || "LOCAL"} by ${Deno.env.get("DENO_KV_ACCESS_TOKEN")}`);
+const kv = await Deno.openKv(kvUrl);
 
-// Add a confirmation prompt for safety. This is critical for production environments.
+if (kvUrl) {
+  console.log(`🌐 Connected to REMOTE database: ${kvUrl}`);
+} else {
+  console.log("📁 Connected to LOCAL database.");
+}
+
 const proceed = confirm(
-  "⚠️ DANGER: This will permanently delete ALL data in the connected Deno KV database. Are you sure you want to proceed?",
+  "⚠️ DANGER: This will permanently delete ALL data in the connected database. Proceed?",
 );
 
 if (!proceed) {
-  console.log("❌ Database clearing cancelled.");
+  console.log("❌ Cancelled.");
   Deno.exit(0);
 }
 
-console.log("✅ Confirmation received. Starting database cleanup...");
+console.log("🧼 Starting cleanup...");
 
-async function deletePrefix(prefix: Deno.KvKey) {
-  console.log(`\n🗑️  Scanning prefix: [${prefix.join(", ")}]...`);
-  let count = 0;
+async function clearAll() {
+  let totalDeleted = 0;
+  const iter = kv.list({ prefix: [] });
+
+  // Use a batch for efficiency
   let atomic = kv.atomic();
-  const BATCH_SIZE = 100;
-  const iter = kv.list({ prefix });
+  let count = 0;
 
   for await (const entry of iter) {
-    atomic.delete(entry.key);
+    atomic = atomic.delete(entry.key);
     count++;
+    totalDeleted++;
 
-    if (count % BATCH_SIZE === 0) {
-      const res = await atomic.commit();
-      if (!res.ok) console.error("❌ Failed to commit batch!");
+    if (count >= 100) {
+      await atomic.commit();
       atomic = kv.atomic();
-      console.log(`   ...deleted ${count} items so far`);
+      count = 0;
+      console.log(`...deleted ${totalDeleted} keys`);
     }
   }
 
-  const res = await atomic.commit();
-  if (!res.ok) console.error("❌ Failed to commit final batch!");
-  console.log(`✅ Finished [${prefix.join(", ")}]: Deleted ${count} entries.`);
-  return count;
+  await atomic.commit();
+  console.log(`✅ Success! Deleted ${totalDeleted} total keys.`);
 }
 
-// Explicitly delete known prefixes to ensure nothing is missed
-let total = 0;
-total += await deletePrefix(["visits"]);
-total += await deletePrefix(["stats"]);
-total += await deletePrefix(["rate_limit"]);
-
-console.log(`\n🎉 Database cleanup complete! Total deleted entries: ${total}`);
+await clearAll();
