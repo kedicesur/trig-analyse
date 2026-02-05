@@ -46,6 +46,18 @@ function isPrivateIP(ip: string): boolean {
   return /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|::1|fe80:|fc00:|fd00:)/i.test(ip);
 }
 
+// 🧹 Periodic cleanup of zombie keys as a helper function for rate limiter
+function pruneZombies (endpoint: string, ip: string, currentBucket: number): void {
+  Array.fromAsync(kv.list({ prefix: ["rate_limit", endpoint, ip] }))
+       .then(entries => entries.length <= 1 ? null 
+                                            : entries.reduce( (bat, {key}) => (key[3] as number) !== currentBucket ? bat.delete(key) 
+                                                                                                                   : bat
+                                                            , kv.atomic()
+                                                            )
+                                                     .commit())
+       .catch(e => console.error("Prune error:", e));
+}
+
 /**
  * High-Performance KV Rate Limiter
  * Strategy: Hybrid (Check-then-Act for creation, Blind Increment for updates)
@@ -71,7 +83,9 @@ export function checkRateLimit( ip:string
                                    , { expireIn:windowMs }
                                    )
                                .commit()
-                               .then(commit => commit.ok ? 1 <= maxRequests  // If commit succeeded, we were the first! Count is 1, which is <= maxRequests (assuming max > 0).
+                               .then(commit => commit.ok ? ( Math.random() < 0.05 && pruneZombies(endpoint, ip, key[3] as number) // Lazy cleanup: 5% chance to prune zombies
+                                                           , 1 <= maxRequests // If commit succeeded, we were the first!
+                                                           )
                                                          : kv.atomic()       // 3. "Thundering Herd" Handling (Blind Increment)
                                                              .sum(key, 1n)   // Increment. Note: If key expired in the split second between check and sum, this creates a zombie key without TTL.
                                                              .commit()       // We switch to blind increment. No checks, no retries, no contention loops.
