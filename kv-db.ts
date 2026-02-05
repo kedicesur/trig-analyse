@@ -5,20 +5,30 @@
 
 // 1. Singleton KV Connection
 const kv = await Deno.openKv();
-
-// Helper to safely unwrap Deno.KvU64 to number (handles .sum() stored values)
-const unwrap = (v: unknown) => v instanceof Deno.KvU64 ? Number(v.value) : Number(v || 0);
-
-// Helper functions for getStats
-const fetchCounters = (prefix: readonly string[]) => Array.fromAsync(kv.list({ prefix }))     // The key is likely ["stats", "paths", "/home"] -> take the last part
+// Helper functions
+      // Helper to safely unwrap Deno.KvU64 to number (handles .sum() stored values)
+const unwrap        = (v: unknown) => v instanceof Deno.KvU64 ? Number(v.value)
+                                                              : Number(v || 0),
+      // Helper functions for getStats
+      fetchCounters = (prefix: readonly string[]) => Array.fromAsync(kv.list({ prefix })) // The key is likely ["stats", "paths", "/home"] -> take the last part
                                                           .then(entries => entries.reduce<Record<string, number>>((stats, entry) => ( stats[entry.key[entry.key.length - 1] as string] = unwrap(entry.value) 
                                                                                                                                     , stats
                                                                                                                                     )
                                                                                                                  , {}
                                                                                                                  )),
-        sortTop     = (obj: Record<string, number>) => Object.fromEntries(Object.entries(obj) // Sort "Top" lists by value (descending) since KV returns them by Key (alphabetical)
-                                                             .sort(([, a], [, b]) => b - a)
-                                                             .slice(0, 50));
+      // Sort "Top" lists by value (descending) since KV returns them by Key (alphabetical)
+      sortTop       = (obj: Record<string, number>) => Object.fromEntries(Object.entries(obj)
+                                                                                .sort(([, a], [, b]) => b - a)
+                                                                                .slice(0, 50)),
+      // 🧹 Periodic cleanup of zombie keys as a helper function for rate limiter
+      pruneZombies  = (endpoint: string, ip: string, currentBucket: number) => Array.fromAsync(kv.list({ prefix: ["rate_limit", endpoint, ip] }))
+                                                                                    .then(entries => entries.length <= 1 ? null
+                                                                                                                         : entries.reduce( (bat, {key}) => (key[3] as number) !== currentBucket ? bat.delete(key)
+                                                                                                                                                                                                : bat
+                                                                                                                                         , kv.atomic()
+                                                                                                                                         )
+                                                                                                                                  .commit())
+                                                                                    .catch(e => console.error("Prune error:", e));
 
 export interface VisitorLog {
   timestamp: number;
@@ -39,23 +49,6 @@ function getISOWeek(date: Date): string {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
-}
-
-// 🔍 Check if an IP address is private/internal
-function isPrivateIP(ip: string): boolean {
-  return /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|::1|fe80:|fc00:|fd00:)/i.test(ip);
-}
-
-// 🧹 Periodic cleanup of zombie keys as a helper function for rate limiter
-function pruneZombies (endpoint: string, ip: string, currentBucket: number): void {
-  Array.fromAsync(kv.list({ prefix: ["rate_limit", endpoint, ip] }))
-       .then(entries => entries.length <= 1 ? null 
-                                            : entries.reduce( (bat, {key}) => (key[3] as number) !== currentBucket ? bat.delete(key) 
-                                                                                                                   : bat
-                                                            , kv.atomic()
-                                                            )
-                                                     .commit())
-       .catch(e => console.error("Prune error:", e));
 }
 
 /**
@@ -107,9 +100,9 @@ export function getClientIP(headers: Headers, info?: Deno.ServeHandlerInfo): str
                                                 :
          info?.remoteAddr?.transport === "tcp" ||    // 4. Connection Info
          info?.remoteAddr?.transport === "udp"  ? ( ip = (info.remoteAddr as Deno.NetAddr).hostname.replace(/^::ffff:/, "")
-                                                   , isPrivateIP(ip) ? "local"
-                                                                     : ip
-                                                   )
+                                                  , /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|::1|fe80:|fc00:|fd00:)/i.test(ip) ? "local" // 🔍 Check if an IP address is private/internal or not
+                                                                                                                                             : ip
+                                                  )
          /* OTHERWISE */                        : "unknown"; // 5. Fallback
 }
 
@@ -158,7 +151,7 @@ export function logVisitor(req: Request, ip: string): Promise<void> {
                                                               .sum(["stats", "weekly", getISOWeek(date)], 1n)                //                     (YYYY-WW)
                                                               .sum(["stats", "monthly", `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`], 1n)
                                                               .commit();                                                     // 4. Commit the transaction
-                                                  })
+                                                   })
                                              .then(commit => !commit.ok ? console.error("Failed to log visitor data")
                                                                         : void 0)
                                              .catch(e => console.error("Error logging visitor:", e));
